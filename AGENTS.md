@@ -1,19 +1,26 @@
 # Frontend agent instructions
 
-## Learning-first, issue-first work
+## Issue-first implementation
 
-- Work only under a human-approved issue brief with a goal, scope, and acceptance
-  criteria. A request to implement a specific issue approves that brief; ask
-  about material ambiguity before implementing it.
+- Work only under a human-approved implementation issue brief with a goal,
+  scope, and acceptance criteria. A request to implement a specific issue
+  approves that brief; ask about material ambiguity before implementing it.
 - Make the smallest change that satisfies the issue. Preserve existing behavior
   and patterns; avoid unrelated refactoring, dependencies, infrastructure, or
   work on future issues.
-- Explain the change, relevant tradeoffs, and actual verification so the human
-  maintainer can understand and explain the result. Before merge, record the
-  maintainer's learning checkpoint and decision in PR discussion; never claim
-  human understanding or approval on their behalf.
-- Human approval is required before merge or deployment. An implementation
-  request does not authorize either action.
+- Implementation PRs cover code, tests, and technical evidence. Explain the
+  change, relevant tradeoffs, and actual verification for human code review.
+- Human code review and approval are required before merge or deployment. An
+  implementation request does not authorize either action.
+
+## Separate learning workflow
+
+- Track learning in separate issues linked to the corresponding implementation
+  issues and PRs. Learning issues are owned by the human maintainer and ChatGPT.
+- Learning completion is independent of software acceptance and is not a PR
+  merge condition.
+- Codex must never conduct, assess, or certify that learning, or close learning
+  issues. The human maintainer closes them after learning with ChatGPT.
 
 ## Public data safeguards
 

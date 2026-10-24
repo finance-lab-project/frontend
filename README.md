@@ -80,5 +80,10 @@ A successful CI run is not proof of security or durable browser storage.
 For dependency triage, run `npm audit` and `npm audit --omit=dev` and distinguish
 browser runtime exposure from development, build, and test tooling. Record
 findings and any remediation issue in the PR; do not apply automatic fixes.
-Before merge, the maintainer records the learning checkpoint and approval in
-the PR discussion. Deployment requires separate human approval.
+
+Follow the [separate learning workflow](AGENTS.md#separate-learning-workflow):
+learning is tracked in linked issues such as
+[#17](https://github.com/finance-lab-project/frontend/issues/17), owned by the
+human maintainer and ChatGPT. Learning completion is independent of software
+acceptance and is not a PR merge condition. Human code review and approval
+remain required before merge or deployment.
