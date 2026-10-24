@@ -1,0 +1,220 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #1f2937;
+  background: #f9fafb;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.budget {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+h1 {
+  margin: 0 0 1.5rem;
+  font-size: 1.75rem;
+}
+
+.month-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.month-navigation span {
+  text-align: center;
+}
+
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.budget-tools {
+  margin-top: 1.5rem;
+}
+
+.budget-tools summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.budget-export {
+  margin: 1.5rem 0;
+}
+
+.export-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.budget-export p {
+  margin: 0.75rem 0 0;
+}
+
+.backup-preview {
+  margin-bottom: 1.5rem;
+}
+
+dialog {
+  max-width: 30rem;
+  padding: 1.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+
+.restore-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 0.75rem;
+}
+
+.backup-preview label {
+  font-weight: 600;
+}
+
+.backup-preview p {
+  margin: 0.75rem 0;
+}
+
+.backup-preview [role="status"]:empty {
+  margin: 0;
+}
+
+.backup-table-scroll {
+  overflow-x: auto;
+}
+
+.backup-table {
+  table-layout: fixed;
+}
+
+.backup-table caption {
+  padding: 0.75rem 0;
+  text-align: left;
+  font-weight: 600;
+}
+
+.backup-table th,
+.backup-table td {
+  padding: 0.5rem;
+  vertical-align: top;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.backup-table th:first-child {
+  width: 25%;
+}
+
+.backup-table th:nth-child(2) {
+  width: 45%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+th,
+td {
+  border: 1px solid #d1d5db;
+  padding: 0;
+}
+
+th {
+  padding: 0.75rem;
+  text-align: left;
+  background: #f3f4f6;
+}
+
+input {
+  box-sizing: border-box;
+  width: 100%;
+  border: 0;
+  padding: 0.65rem;
+  background: transparent;
+}
+
+input:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.totals {
+  display: grid;
+  justify-content: end;
+  gap: 0.5rem;
+  margin: 1.5rem 0 0;
+}
+
+.totals div {
+  display: grid;
+  grid-template-columns: 10rem minmax(5rem, auto);
+  gap: 1rem;
+}
+
+dt,
+dd {
+  margin: 0;
+}
+
+dd {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+h2 {
+  margin: 1.25rem 0 0.75rem;
+  font-size: 1.2rem;
+}
+
+.amount-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  border-bottom: 1px solid #d1d5db;
+  background: white;
+}
+
+.amount-field label {
+  padding: 0.65rem;
+}
+
+.amount-field input {
+  min-width: 0;
+  text-align: right;
+}
+
+.amount-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0.5rem;
+  color: #b91c1c;
+}
+
+@media (max-width: 420px) {
+  .month-navigation { gap: 0.5rem; }
+  .month-navigation button { padding: 0.4rem; }
+}

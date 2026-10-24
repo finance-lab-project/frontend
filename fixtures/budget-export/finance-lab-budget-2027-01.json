@@ -1,0 +1,23 @@
+{
+  "formatVersion": 2,
+  "month": "2027-01",
+  "income": "0010.00",
+  "spending": {
+    "groceries": "0.00",
+    "restaurants": ".5",
+    "utilities": "1.234",
+    "transport": "1e3",
+    "household": "1e+3",
+    "health": "0",
+    "personal-care": "1e-9999",
+    "clothing": "",
+    "subscriptions": "2.00",
+    "education": "03",
+    "tech": "4.50",
+    "culture": "5e-2",
+    "entertainment": "6.789",
+    "gifts": "7",
+    "travel": "8"
+  },
+  "investments": "1E-3"
+}
