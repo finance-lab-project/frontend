@@ -9,7 +9,6 @@
     "lint": "oxlint",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:metrics": "node --test scripts/metrics/*.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
