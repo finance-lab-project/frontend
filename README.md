@@ -3,8 +3,9 @@
 Experimental React/TypeScript monthly budget application, built with Vite.
 [finance-lab-project/frontend](https://github.com/finance-lab-project/frontend)
 is its permanent home; [anton415/finance-lab](https://github.com/anton415/finance-lab)
-is the legacy source. The planned future domain is `finance-lab-project.com`;
-this repository does not configure or deploy it.
+is the legacy source. The target public URL is
+`https://finance-lab-project.com/`. Deployment requires human setup and approval;
+see the [GitHub Pages deployment guide](docs/deployment.md).
 
 ## Current v0.1 scope and limitations
 
@@ -54,7 +55,7 @@ backend services are needed.
 | `npm run preview` | Serve the built `dist/` locally for inspection; run the build first. |
 
 The development and preview servers are local tools, not public hosting.
-A future static host would serve only the built `dist/` files; Node.js is used
+GitHub Pages serves only the built `dist/` files; Node.js is used
 to build and test the application, not to store users' budgets.
 
 ## Project structure
@@ -67,14 +68,17 @@ to build and test the application, not to store users' budgets.
 - `src/budgetExport.ts`, `src/downloadFile.ts`: JSON/CSV export and downloads.
 - `src/**/*.test.{ts,tsx}`, `fixtures/`: tests and synthetic backup/export examples.
 - `vite.config.ts`, `tsconfig*.json`: build and test configuration.
-- `.github/workflows/ci.yml`: verification on pull requests and pushes to `main`.
+- `.github/workflows/ci.yml`: verification and manually approved Pages deployment.
+- `docs/deployment.md`: hosting setup, release verification, and rollback.
 
 ## Contributing and verification
 
 Start with an approved issue brief and follow [AGENTS.md](AGENTS.md). Keep each
 change small enough for the maintainer to explain and review. CI independently
 installs the lockfile on a fresh Ubuntu runner with Node 24, then runs lint,
-tests, and the production build. It does not release or deploy the application.
+tests, and the production build. Pull requests and pushes never deploy. A human
+can manually run the same workflow on `main`, inspect its build artifact, and
+approve deployment through the protected `github-pages` environment.
 A successful CI run is not proof of security or durable browser storage.
 
 For dependency triage, run `npm audit` and `npm audit --omit=dev` and distinguish
