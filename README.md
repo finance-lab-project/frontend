@@ -76,9 +76,11 @@ to build and test the application, not to store users' budgets.
 Start with an approved issue brief and follow [AGENTS.md](AGENTS.md). Keep each
 change small enough for the maintainer to explain and review. CI independently
 installs the lockfile on a fresh Ubuntu runner with Node 24, then runs lint,
-tests, and the production build. Pull requests and pushes never deploy. A human
-can manually run the same workflow on `main`, inspect its build artifact, and
-approve deployment through the protected `github-pages` environment.
+tests, and the production build. Pull requests only verify. After a reviewed PR is merged, pushes to `main`
+automatically build a Pages release candidate; a human must inspect the artifact
+and approve deployment through the protected `github-pages` environment. Manual
+`workflow_dispatch` on `main` remains an option for approved redeployment/rollback.
+See [the deployment guide](docs/deployment.md) for the release approval gate.
 A successful CI run is not proof of security or durable browser storage.
 
 For dependency triage, run `npm audit` and `npm audit --omit=dev` and distinguish
