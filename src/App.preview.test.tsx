@@ -47,7 +47,7 @@ const storageSnapshot = () => Object.fromEntries(
 const budgetSnapshot = () => ({
   month: screen.getByText(/^[A-Z][a-z]+ \d{4}$/).textContent,
   inputs: screen.getAllByRole('textbox').map((input) => (input as HTMLInputElement).value),
-  totals: ['Income', 'Spending', 'Investments', 'Remaining'].map((name) => screen.getByRole('status', { name }).textContent),
+  totals: ['Income', 'Planned Spending', 'Planned Investments', 'Remaining'].map((name) => screen.getByRole('status', { name }).textContent),
 })
 
 // Start observing after render/edit/navigation have flushed their normal writes.

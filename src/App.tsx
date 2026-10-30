@@ -85,6 +85,23 @@ function App() {
         <button type="button" onClick={() => changeMonth(1)}>Next month</button>
       </div>
 
+      <section aria-labelledby="summary-heading">
+        <h2 id="summary-heading">Summary</h2>
+        <dl className="totals">
+          {([
+            ['income', 'Income'],
+            ['spending', 'Planned Spending'],
+            ['investments', 'Planned Investments'],
+            ['remaining', 'Remaining'],
+          ] as const).map(([field, label]) => (
+            <div key={field}>
+              <dt>{label}</dt>
+              <dd><output aria-label={label}>{formatAmount(totals[field])}</output></dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
       <section className="budget-section" aria-labelledby="income-heading">
         <h2 id="income-heading">Monthly income</h2>
         <AmountInput id="income" label="Monthly income" value={data.income} onChange={(value) => updateAmount('income', value)} />
@@ -100,19 +117,6 @@ function App() {
       <section className="budget-section" aria-labelledby="investments-heading">
         <h2 id="investments-heading">Investments</h2>
         <AmountInput id="investments" label="Investments" value={data.investments} onChange={(value) => updateAmount('investments', value)} />
-      </section>
-
-      <section aria-labelledby="summary-heading">
-        <h2 id="summary-heading">Summary</h2>
-        <dl className="totals">
-          {(['income', 'spending', 'investments', 'remaining'] as const).map((field) => {
-            const label = field[0].toUpperCase() + field.slice(1)
-            return <div key={field}>
-              <dt>{label}</dt>
-              <dd><output aria-label={label}>{formatAmount(totals[field])}</output></dd>
-            </div>
-          })}
-        </dl>
       </section>
 
       <details className="budget-tools">

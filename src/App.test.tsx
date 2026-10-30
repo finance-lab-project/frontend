@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import App from './App'
@@ -30,10 +30,27 @@ test('starts with exactly one income, all fifteen ordered fixed categories, and 
     'personal-care', 'clothing', 'subscriptions', 'education', 'tech', 'culture', 'entertainment', 'gifts', 'travel', 'investments',
   ])
   for (const label of ['Monthly income', ...labels, 'Investments']) expect(field(label)).toHaveProperty('value', '')
-  for (const label of ['Income', 'Spending', 'Investments', 'Remaining']) expect(total(label)).toBe('0')
+  for (const label of ['Income', 'Planned Spending', 'Planned Investments', 'Remaining']) expect(total(label)).toBe('0')
   expect(screen.queryByRole('combobox')).toBeNull()
   expect(document.querySelector('details')).toHaveProperty('open', false)
   expect(JSON.parse(localStorage.getItem(key)!)).toEqual(emptyBudget())
+})
+
+test('shows the month and four labeled read-only totals before every editable amount', () => {
+  render(<App />)
+  const summary = screen.getByRole('region', { name: 'Summary' })
+  expect(screen.getByText('September 2026').compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(within(summary).getAllByRole('term').map((term) => term.textContent)).toEqual([
+    'Income', 'Planned Spending', 'Planned Investments', 'Remaining',
+  ])
+  expect(within(summary).getAllByRole('status').map((output) => output.getAttribute('aria-label'))).toEqual([
+    'Income', 'Planned Spending', 'Planned Investments', 'Remaining',
+  ])
+  expect(within(summary).queryByRole('textbox')).toBeNull()
+  expect(within(summary).queryByRole('spinbutton')).toBeNull()
+  for (const input of screen.getAllByRole('textbox')) {
+    expect(summary.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  }
 })
 
 test('derives totals with investments excluded from spending, including a negative remaining amount', () => {
@@ -41,9 +58,9 @@ test('derives totals with investments excluded from spending, including a negati
   edit('Monthly income', '100')
   labels.forEach((label) => edit(label, '1'))
   edit('Investments', '20')
-  expect([total('Income'), total('Spending'), total('Investments'), total('Remaining')]).toEqual(['100', '15', '20', '65'])
+  expect([total('Income'), total('Planned Spending'), total('Planned Investments'), total('Remaining')]).toEqual(['100', '15', '20', '65'])
   edit('Investments', '120')
-  expect(total('Spending')).toBe('15')
+  expect(total('Planned Spending')).toBe('15')
   expect(total('Remaining')).toBe('-35')
   edit('Travel', '')
   expect(total('Remaining')).toBe('-34')
@@ -56,19 +73,23 @@ test('preserves every source string across navigation and remount without alteri
   edit('Monthly income', '003000.00')
   labels.forEach((label, i) => edit(label, values[i]))
   edit('Investments', '1e+2')
+  const savedTotals = screen.getAllByRole('status').map((output) => output.textContent)
   const saved = localStorage.getItem(key)
   navigate('Next')
   for (const input of screen.getAllByRole('textbox')) expect(input).toHaveProperty('value', '')
   edit('Monthly income', '200')
   edit('Travel', '20')
+  expect([total('Income'), total('Planned Spending'), total('Planned Investments'), total('Remaining')]).toEqual(['200', '20', '0', '180'])
   const nextSaved = localStorage.getItem('finance-lab:budget:2026-10')
   navigate('Previous')
+  expect(screen.getAllByRole('status').map((output) => output.textContent)).toEqual(savedTotals)
   labels.forEach((label, i) => expect(field(label)).toHaveProperty('value', values[i]))
   expect(localStorage.getItem(key)).toBe(saved)
   expect(localStorage.getItem('finance-lab:budget:2026-10')).toBe(nextSaved)
   app.unmount()
   render(<App />)
   expect(field('Monthly income')).toHaveProperty('value', '003000.00')
+  expect(screen.getAllByRole('status').map((output) => output.textContent)).toEqual(savedTotals)
   expect(field('Investments')).toHaveProperty('value', '1e+2')
   labels.forEach((label, i) => expect(field(label)).toHaveProperty('value', values[i]))
 })
@@ -91,10 +112,15 @@ test('allows incomplete typing, reports invalid drafts, and saves once the compl
   edit('Monthly income', '1e')
   expect(field('Monthly income').getAttribute('aria-invalid')).toBe('true')
   expect(screen.getByRole('alert').textContent).toMatch(/not saved/)
+  expect(field('Monthly income').getAttribute('aria-describedby')).toBe(screen.getByRole('alert').id)
+  expect(total('Income')).toBe('0')
+  expect(total('Remaining')).toBe('0')
   expect(localStorage.getItem(key)).toBe(saved)
   edit('Monthly income', '1e+3')
   expect(screen.queryByRole('alert')).toBeNull()
   expect(JSON.parse(localStorage.getItem(key)!).income).toBe('1e+3')
+  expect(total('Income')).toBe((1000).toLocaleString())
+  expect(total('Remaining')).toBe((1000).toLocaleString())
 })
 
 test('navigation remains relative to the selected month across a clock and year rollover', () => {
