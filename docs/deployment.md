@@ -66,10 +66,15 @@ issues, logs, screenshots, or artifacts.
 ## Release and artifact approval
 
 The existing **CI** workflow handles verification and Pages in one pipeline;
-there is no second CI build. Pull requests and `main` pushes run checks only.
-Only **Run workflow → main** (`workflow_dispatch`) in this organization repository
-can upload a Pages artifact or enter the deployment job. Deployment requires
-successful verification and approval of the protected `github-pages` environment.
+there is no second CI build. Pull requests run **verification only**. A human-reviewed
+PR merged into `main` automatically triggers a verified Pages release candidate;
+**Run workflow → main** (`workflow_dispatch`) remains available for manual releases
+and rollback. Both triggers upload a Pages artifact and enter the deployment gate
+**only after successful verification**. Deployment remains blocked until a human
+approves the protected `github-pages` environment. This is **gated continuous
+delivery**, not unattended production deployment. Before merging the enabling PR,
+confirm the environment requires a reviewer, forbids admin bypass, and permits
+only the branch `main`.
 The build has `contents: read`; only deployment has `pages: write` and
 `id-token: write`. No personal tokens or deployment secrets are needed. This
 follows [GitHub's custom workflow model](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
@@ -77,7 +82,10 @@ follows [GitHub's custom workflow model](https://docs.github.com/en/pages/gettin
 1. Before releasing, open the repository's **Deployments → github-pages** history
    and record the last successful deployment's full source SHA and Actions run
    URL. For the first release, record that no previous deployment exists.
-2. A human opens **Actions → CI → Run workflow**, selects `main`, and runs it.
+2. A human reviews and merges a PR into `main`; the ensuing push starts CI and
+   automatically prepares the release candidate. Alternatively, for a manual
+   redeployment, open **Actions → CI → Run workflow**, select `main`, and start it.
+   PR-triggered jobs never publish.
 3. Wait for `verify` to pass. Check its full source SHA against the reviewed
    change and inspect the run's `github-pages` artifact before approval. It is
    retained for seven days. Download and extract the artifact ZIP and its

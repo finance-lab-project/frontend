@@ -25,18 +25,18 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: Upload release candidate for review
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'finance-lab-project/frontend'
+        if: (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && github.repository == 'finance-lab-project/frontend'
         uses: actions/upload-pages-artifact@v4
         with:
           path: dist
           retention-days: 7
       - name: Record release candidate
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'finance-lab-project/frontend'
+        if: (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && github.repository == 'finance-lab-project/frontend'
         run: |
           printf 'Source SHA: `%s`\n\nArtifact: `github-pages` (built and verified in this run).\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'finance-lab-project/frontend'
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main' && github.repository == 'finance-lab-project/frontend'
     needs: verify
     runs-on: ubuntu-latest
     permissions:
@@ -45,8 +45,8 @@ jobs:
     concurrency:
       group: github-pages
       cancel-in-progress: false
-    # The maintainer must configure required reviewers and main-only branches
-    # for this environment before the first manual run. See docs/deployment.md.
+    # Confirm required reviewers, no admin bypass, and main-only branch protection
+    # before enabling this automatic release-candidate trigger. See docs/deployment.md.
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
