@@ -71,7 +71,7 @@ const storageSnapshot = () => Object.fromEntries(Object.keys(localStorage).sort(
 const budgetSnapshot = () => ({
   month: document.querySelector('.month-navigation span')?.textContent,
   inputs: screen.getAllByRole('textbox').map((input) => (input as HTMLInputElement).value),
-  totals: ['Income', 'Spending', 'Investments', 'Remaining'].map((name) => screen.getByRole('status', { name }).textContent),
+  totals: ['Income', 'Planned Spending', 'Planned Investments', 'Remaining'].map((name) => screen.getByRole('status', { name }).textContent),
 })
 const observe = () => {
   const storage = storageSnapshot()
