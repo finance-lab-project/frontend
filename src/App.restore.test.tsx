@@ -61,7 +61,7 @@ const setup = () => {
   localStorage.setItem('finance-lab:budget:2028-02', '  [sample untouched data] ')
   localStorage.setItem('sample-preference', 'keep exactly')
   const app = render(<StrictMode><App /></StrictMode>)
-  fireEvent.click(screen.getByText('Export and backup'))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
   return app
 }
 
@@ -70,8 +70,8 @@ const storageSnapshot = () => Object.fromEntries(Object.keys(localStorage).sort(
 ))
 const budgetSnapshot = () => ({
   month: document.querySelector('.month-navigation span')?.textContent,
-  inputs: screen.getAllByRole('textbox').map((input) => (input as HTMLInputElement).value),
-  totals: ['Income', 'Planned Spending', 'Planned Investments', 'Remaining'].map((name) => screen.getByRole('status', { name }).textContent),
+  inputs: screen.getAllByRole('textbox', { hidden: true }).map((input) => (input as HTMLInputElement).value),
+  totals: ['Income', 'Planned Spending', 'Planned Investments', 'Remaining'].map((name) => screen.getByLabelText(name, { selector: 'output' }).textContent),
 })
 const observe = () => {
   const storage = storageSnapshot()
@@ -108,6 +108,8 @@ const backupFile = (source: string) => {
 const fileInput = () => screen.getByLabelText('Choose JSON backup')
 const selectFile = (file: File) => fireEvent.change(fileInput(), { target: { files: [file] } })
 const choose = async (source = mixedFixture) => {
+  const settings = screen.queryByRole('button', { name: 'Settings' })
+  if (settings) fireEvent.click(settings)
   selectFile(backupFile(source))
   await screen.findByRole('table', { name: 'Monthly budget backup preview' })
 }
@@ -116,12 +118,17 @@ const begin = () => fireEvent.click(startButton())
 const finalButton = () => within(screen.getByRole('dialog')).getByRole('button', { name: /^(Replace|Restore) month / })
 const confirm = () => fireEvent.click(finalButton())
 const navigate = (offset: number) => {
+  const back = screen.queryByRole('button', { name: 'Back to budget' })
+  if (back) fireEvent.click(back)
   for (let index = 0; index < Math.abs(offset); index += 1) {
     fireEvent.click(screen.getByRole('button', { name: offset > 0 ? 'Next month' : 'Previous month' }))
   }
 }
 const exported = () => {
-  fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }))
+  const settings = screen.queryByRole('button', { name: 'Settings' })
+  if (settings) fireEvent.click(settings)
+  fireEvent.click(screen.getByRole('button', { name: 'Export JSON backup' }))
+  if (settings) fireEvent.click(screen.getByRole('button', { name: 'Back to budget' }))
   return parseBudgetBackup(vi.mocked(downloadFile).mock.calls.at(-1)![0].content)
 }
 const expectSuccess = (month: string) => {
@@ -130,7 +137,8 @@ const expectSuccess = (month: string) => {
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(screen.queryByRole('table', { name: 'Monthly budget backup preview' })).toBeNull()
   expect(fileInput()).toHaveProperty('value', '')
-  expect(startButton()).toHaveProperty('disabled', true)
+  expect(screen.queryByRole('region', { name: 'Data & Backup' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Restore backup…', hidden: true })).toHaveProperty('disabled', true)
 }
 
 test.each([
@@ -143,7 +151,7 @@ test.each([
   localStorage.setItem(key, JSON.stringify(sourceOf(approved)))
   localStorage.setItem('sample-preference', 'keep exactly')
   const app = render(<StrictMode><App /></StrictMode>)
-  fireEvent.click(screen.getByText('Export and backup'))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
   navigate(offset)
   expect(exported()).toEqual(approved)
   const download = vi.mocked(downloadFile).mock.calls.at(-1)![0]
@@ -165,7 +173,7 @@ test.each([
 
   app.unmount()
   render(<App />)
-  fireEvent.click(screen.getByText('Export and backup'))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
   expect(screen.getByText('September 2026')).toBeTruthy()
   navigate(offset)
   expect(exported()).toEqual(approved)
@@ -358,7 +366,7 @@ test('serialization failure occurs before any final storage read/write and requi
 test('double activation consumes approval once and clears stale export errors', async () => {
   setup()
   vi.mocked(downloadFile).mockImplementationOnce(() => { throw new Error('Sample download failure') })
-  fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Export JSON backup' }))
   expect(screen.getByRole('alert')).toBeTruthy()
   await choose()
   begin()
