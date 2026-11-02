@@ -24,7 +24,7 @@ budgets; blocked or full storage can prevent saving. Incomplete or invalid
 amount edits remain in the UI and are not saved. There is no server copy to
 recover from.
 
-Use **Export and backup** to download the selected month as CSV for inspection
+Use **Settings → Data & Backup** to download the selected month as CSV for inspection
 or JSON v2 for a lossless backup. Only JSON v2 can be previewed and restored;
 CSV and historical JSON v1 are not restore formats. Keep downloaded backups
 separately from browser storage. Restoring a month can replace its existing data

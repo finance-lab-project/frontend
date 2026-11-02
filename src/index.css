@@ -5,7 +5,6 @@
 }
 
 body {
-  min-width: 320px;
   min-height: 100vh;
   margin: 0;
 }
@@ -22,8 +21,17 @@ input {
 }
 
 h1 {
-  margin: 0 0 1.5rem;
+  margin: 0;
   font-size: 1.75rem;
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
 }
 
 .month-navigation {
@@ -40,18 +48,9 @@ h1 {
 }
 
 button:focus-visible,
-summary:focus-visible {
+h1:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
-}
-
-.budget-tools {
-  margin-top: 1.5rem;
-}
-
-.budget-tools summary {
-  cursor: pointer;
-  font-weight: 600;
 }
 
 .budget-export {
@@ -60,7 +59,9 @@ summary:focus-visible {
 
 .export-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
+  margin-top: 0.75rem;
 }
 
 .budget-export p {

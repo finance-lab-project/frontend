@@ -11,8 +11,16 @@ beforeEach(() => {
   vi.mocked(downloadFile).mockReset()
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); vi.useRealTimers() })
-const setup = () => { render(<App />); fireEvent.click(screen.getByText('Export and backup')) }
-const exportFile = (format = 'JSON') => fireEvent.click(screen.getByRole('button', { name: `Export ${format}` }))
+const setup = () => render(<App />)
+const openSettings = () => {
+  const button = screen.queryByRole('button', { name: 'Settings' })
+  if (button) fireEvent.click(button)
+}
+const backToBudget = () => fireEvent.click(screen.getByRole('button', { name: 'Back to budget' }))
+const exportFile = (format = 'JSON') => {
+  openSettings()
+  fireEvent.click(screen.getByRole('button', { name: format === 'JSON' ? 'Export JSON backup' : 'Export CSV' }))
+}
 const last = () => vi.mocked(downloadFile).mock.calls.at(-1)![0]
 
 test('exports the selected month and latest edits without storage access or mutation', () => {
@@ -29,6 +37,7 @@ test('exports the selected month and latest edits without storage access or muta
     expect(read).not.toHaveBeenCalled()
     expect(write).not.toHaveBeenCalled()
     vi.restoreAllMocks()
+    backToBudget()
     fireEvent.click(screen.getByRole('button', { name: 'Next month' }))
   }
 })
@@ -40,6 +49,7 @@ test('blocks invalid drafts in both formats and clears stale errors after correc
   for (const format of ['JSON', 'CSV']) exportFile(format)
   expect(downloadFile).not.toHaveBeenCalled()
   expect(screen.getAllByRole('alert').some((node) => /finite nonnegative/.test(node.textContent!))).toBe(true)
+  backToBudget()
   fireEvent.change(income, { target: { value: '100' } })
   expect(screen.queryByRole('alert')).toBeNull()
   exportFile()
@@ -62,7 +72,9 @@ test('exports in-memory data while storage is unavailable and handles download f
 test('export buttons support keyboard activation', async () => {
   const user = userEvent.setup()
   setup()
-  screen.getByText('Export and backup').focus()
+  openSettings()
+  await user.tab()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Back to budget' }))
   await user.tab()
   await user.keyboard('{Enter}')
   expect(last().filename).toMatch(/\.csv$/)

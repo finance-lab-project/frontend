@@ -18,8 +18,10 @@ function App() {
   const monthKey = currentMonthKey(month)
   const [exportError, setExportError] = useState<string | null>(null)
   const [restoreNotice, setRestoreNotice] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const restoredBudget = useRef<typeof budget | null>(null)
   const heading = useRef<HTMLHeadingElement>(null)
+  const settingsButton = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     // Restoration has already persisted this exact state. Ordinary edits create
@@ -32,11 +34,16 @@ function App() {
     if (restoreNotice) heading.current?.focus()
   }, [restoreNotice, budget])
 
+  useLayoutEffect(() => {
+    if (settingsOpen) heading.current?.focus()
+  }, [settingsOpen])
+
   const showRestoredBudget = (nextBudget: typeof budget, backupMonth: string) => {
     restoredBudget.current = nextBudget
     setBudget(nextBudget)
     setExportError(null)
     setRestoreNotice(`Restored budget for ${backupMonth}`)
+    setSettingsOpen(false)
   }
   const totals = budgetTotals(data)
 
@@ -74,60 +81,77 @@ function App() {
 
   return (
     <main className="budget">
-      <h1 ref={heading} tabIndex={-1}>Monthly budget</h1>
-      {restoreNotice && <p role="status">{restoreNotice}</p>}
+      <header className="page-header">
+        <h1 ref={heading} tabIndex={-1}>{settingsOpen ? 'Settings' : 'Monthly budget'}</h1>
+        <button ref={settingsButton} type="button" onClick={() => {
+          setSettingsOpen(!settingsOpen)
+          settingsButton.current?.focus()
+        }}>
+          {settingsOpen ? 'Back to budget' : 'Settings'}
+        </button>
+      </header>
 
-      <div className="month-navigation">
-        <button type="button" onClick={() => changeMonth(-1)}>Previous month</button>
-        <span aria-live="polite">
-          {month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-        </span>
-        <button type="button" onClick={() => changeMonth(1)}>Next month</button>
+      <div hidden={settingsOpen}>
+        {restoreNotice && <p role="status">{restoreNotice}</p>}
+
+        <div className="month-navigation">
+          <button type="button" onClick={() => changeMonth(-1)}>Previous month</button>
+          <span aria-live="polite">
+            {month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </span>
+          <button type="button" onClick={() => changeMonth(1)}>Next month</button>
+        </div>
+
+        <section aria-labelledby="summary-heading">
+          <h2 id="summary-heading">Summary</h2>
+          <dl className="totals">
+            {([
+              ['income', 'Income'],
+              ['spending', 'Planned Spending'],
+              ['investments', 'Planned Investments'],
+              ['remaining', 'Remaining'],
+            ] as const).map(([field, label]) => (
+              <div key={field}>
+                <dt>{label}</dt>
+                <dd><output aria-label={label}>{formatAmount(totals[field])}</output></dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        <section className="budget-section" aria-labelledby="income-heading">
+          <h2 id="income-heading">Monthly income</h2>
+          <AmountInput id="income" label="Monthly income" value={data.income} onChange={(value) => updateAmount('income', value)} />
+        </section>
+
+        <section className="budget-section" aria-labelledby="spending-heading">
+          <h2 id="spending-heading">Spending</h2>
+          {spendingCategories.map(({ id, label }) => (
+            <AmountInput key={id} id={id} label={label} value={data.spending[id]} onChange={(value) => updateAmount(id, value)} />
+          ))}
+        </section>
+
+        <section className="budget-section" aria-labelledby="investments-heading">
+          <h2 id="investments-heading">Investments</h2>
+          <AmountInput id="investments" label="Investments" value={data.investments} onChange={(value) => updateAmount('investments', value)} />
+        </section>
       </div>
 
-      <section aria-labelledby="summary-heading">
-        <h2 id="summary-heading">Summary</h2>
-        <dl className="totals">
-          {([
-            ['income', 'Income'],
-            ['spending', 'Planned Spending'],
-            ['investments', 'Planned Investments'],
-            ['remaining', 'Remaining'],
-          ] as const).map(([field, label]) => (
-            <div key={field}>
-              <dt>{label}</dt>
-              <dd><output aria-label={label}>{formatAmount(totals[field])}</output></dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      <section className="budget-section" aria-labelledby="income-heading">
-        <h2 id="income-heading">Monthly income</h2>
-        <AmountInput id="income" label="Monthly income" value={data.income} onChange={(value) => updateAmount('income', value)} />
-      </section>
-
-      <section className="budget-section" aria-labelledby="spending-heading">
-        <h2 id="spending-heading">Spending</h2>
-        {spendingCategories.map(({ id, label }) => (
-          <AmountInput key={id} id={id} label={label} value={data.spending[id]} onChange={(value) => updateAmount(id, value)} />
-        ))}
-      </section>
-
-      <section className="budget-section" aria-labelledby="investments-heading">
-        <h2 id="investments-heading">Investments</h2>
-        <AmountInput id="investments" label="Investments" value={data.investments} onChange={(value) => updateAmount('investments', value)} />
-      </section>
-
-      <details className="budget-tools">
-        <summary>Export and backup</summary>
+      <section hidden={!settingsOpen} aria-labelledby="data-backup-heading">
+        <h2 id="data-backup-heading">Data &amp; Backup</h2>
+        <p>
+          Your financial data is stored in this browser's localStorage. It is not synced
+          or automatically backed up. Clearing this browser's site data can erase your budgets.
+          Keep downloaded JSON backups separately.
+        </p>
         <div className="budget-export">
+          <p>Selected budget: {month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.</p>
           <div className="export-actions">
             <button type="button" aria-describedby="export-help" onClick={() => exportBudget('csv')}>
               Export CSV
             </button>
             <button type="button" aria-describedby="export-help" onClick={() => exportBudget('json')}>
-              Export JSON
+              Export JSON backup
             </button>
           </div>
           <p id="export-help">
@@ -141,7 +165,7 @@ function App() {
           onRestored={showRestoredBudget}
           onRestoreActivity={() => setRestoreNotice(null)}
         />
-      </details>
+      </section>
     </main>
   )
 }

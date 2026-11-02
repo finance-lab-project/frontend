@@ -12,6 +12,8 @@ const previewName = 'Monthly budget backup preview'
 const existingNotice = 'Stored data already exists for this month; restoration would replace it. Presence does not confirm that the stored data is valid.'
 const absentNotice = 'No stored data was found for this month at the time of checking.'
 const unknownNotice = 'The backup is valid, but destination storage status could not be checked.'
+const openSettings = () => fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+const backToBudget = () => fireEvent.click(screen.getByRole('button', { name: 'Back to budget' }))
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -36,7 +38,7 @@ const renderStoredBudget = () => {
   localStorage.setItem('finance-lab:budget:2026-10', JSON.stringify(makeBudget()))
   localStorage.setItem('sample-unrelated-preference', 'keep exactly')
   const app = render(<App />)
-  fireEvent.click(screen.getByText('Export and backup'))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
   return app
 }
 
@@ -46,8 +48,8 @@ const storageSnapshot = () => Object.fromEntries(
 
 const budgetSnapshot = () => ({
   month: screen.getByText(/^[A-Z][a-z]+ \d{4}$/).textContent,
-  inputs: screen.getAllByRole('textbox').map((input) => (input as HTMLInputElement).value),
-  totals: ['Income', 'Planned Spending', 'Planned Investments', 'Remaining'].map((name) => screen.getByRole('status', { name }).textContent),
+  inputs: screen.getAllByRole('textbox', { hidden: true }).map((input) => (input as HTMLInputElement).value),
+  totals: ['Income', 'Planned Spending', 'Planned Investments', 'Remaining'].map((name) => screen.getByLabelText(name, { selector: 'output' }).textContent),
 })
 
 // Start observing after render/edit/navigation have flushed their normal writes.
@@ -132,7 +134,7 @@ test('provides a labelled keyboard-accessible single-file input with preview lim
   expect(help).toMatch(/no budgets will be changed/i)
   expect(help).toMatch(/UTF-8/)
   expect(help).toMatch(/1 MiB/)
-  screen.getByRole('button', { name: 'Export JSON' }).focus()
+  screen.getByRole('button', { name: 'Export JSON backup' }).focus()
   await user.tab()
   expect(document.activeElement).toBe(input)
   expect(clearButton()).toHaveProperty('type', 'button')
@@ -140,7 +142,7 @@ test('provides a labelled keyboard-accessible single-file input with preview lim
   expect(screen.getByRole('button', { name: 'Restore backup…' })).toHaveProperty('disabled', true)
 })
 
-test('keeps the selected preview and budget unchanged when the file section is collapsed and reopened', async () => {
+test('keeps the selected preview and budget unchanged when Settings is hidden and reopened', async () => {
   const user = userEvent.setup()
   renderStoredBudget()
   const input = fileInput()
@@ -148,12 +150,12 @@ test('keeps the selected preview and budget unchanged when the file section is c
   selectFile(file)
   await expectPreview(mixedFixture)
   const assertReadOnly = observeReadOnly()
-  const summary = screen.getByText('Export and backup')
-
-  await user.click(summary)
-  expect(summary.closest('details')).toHaveProperty('open', false)
-  await user.click(summary)
-  expect(summary.closest('details')).toHaveProperty('open', true)
+  await user.click(screen.getByRole('button', { name: 'Back to budget' }))
+  expect(screen.queryByRole('region', { name: 'Data & Backup' })).toBeNull()
+  expect(preview()).toBeNull()
+  assertReadOnly()
+  await user.click(screen.getByRole('button', { name: 'Settings' }))
+  expect(screen.getByRole('region', { name: 'Data & Backup' })).toBeTruthy()
 
   expect(fileInput()).toBe(input)
   expect(input.files?.[0]).toBe(file)
@@ -167,8 +169,10 @@ test.each([
   { name: 'representation', source: representationFixture },
 ])('previews the complete $name fixture without changing the displayed budget or any stored bytes', async ({ source }) => {
   renderStoredBudget()
+  backToBudget()
   fireEvent.change(screen.getByRole('textbox', { name: 'Monthly income' }), { target: { value: 'Edited sample' } })
   fireEvent.click(screen.getByRole('button', { name: 'Next month' }))
+  openSettings()
   const assertReadOnly = observeReadOnly()
   selectFile(backupFile(source))
   await expectPreview(source)
@@ -391,17 +395,23 @@ test('editing and navigating while reading preserves the independent destination
   renderStoredBudget()
   const pending = deferredFile()
   selectFile(pending.file)
+  backToBudget()
   fireEvent.change(screen.getByRole('textbox', { name: 'Monthly income' }), { target: { value: '444' } })
   fireEvent.click(screen.getByRole('button', { name: 'Next month' }))
   const assertReadOnly = observeReadOnly()
   await act(async () => pending.resolve(bytes(representationFixture)))
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Settings' }))
+  expect(preview()).toBeNull()
+  openSettings()
   await expectPreview(representationFixture)
   expect(screen.getByText('October 2026')).toBeTruthy()
   assertReadOnly()
 
+  backToBudget()
   fireEvent.change(screen.getByRole('textbox', { name: 'Monthly income' }), { target: { value: '222' } })
   fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
   expect(screen.getByRole('textbox', { name: 'Monthly income' })).toHaveProperty('value', '444')
+  openSettings()
   await expectPreview(representationFixture)
   const assertAfterNavigation = observeReadOnly()
   cancelPicker()
