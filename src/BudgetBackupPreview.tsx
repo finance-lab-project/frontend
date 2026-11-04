@@ -1,13 +1,15 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { BudgetBackupError, type BudgetBackup } from './budgetBackup'
 import { BudgetBackupFileError, readBudgetBackupFile } from './budgetBackupFile'
-import { backupMonthKey, getBudgetPresence } from './budgetStorage'
+import { backupMonthKey, BudgetStorageError, CATALOG_KEY, checkStoredCatalog, getBudgetPresence, persistBudget } from './budgetStorage'
 import { prepareBudgetRestore } from './budgetRestore'
-import { spendingCategories, type MonthlyBudget } from './budgetModel'
+import { type MonthlyBudget } from './budgetModel'
+
+import type { CategoryCatalog } from './categoryCatalog'
 
 type Candidate = { selection: number; document: BudgetBackup }
 type BudgetContext = { month: Date; data: MonthlyBudget }
-type Confirmation = { candidate: Candidate; context: BudgetContext; rawValue: string | null }
+type Confirmation = { candidate: Candidate; context: BudgetContext; rawValue: string | null; rawCatalog: string | null }
 
 type PreviewState =
   | { status: 'idle' }
@@ -44,7 +46,8 @@ function RestoreConfirmation({ confirmation, onCancel, onConfirm }: {
       onCancel()
     }}>
       <h2 id="restore-title">Restore backup for {month}</h2>
-      <p id="restore-scope">Restore income, all fifteen spending categories, and investments for {month}, including empty amounts. Success will display that month.</p>
+      <p id="restore-scope">Restore income, all {confirmation.candidate.document.catalog.categories.length} spending categories, and investments for {month}, including empty amounts. Success will display that month.</p>
+      <p>The backup category IDs, labels, order, and used IDs must match the app-wide catalog. A fresh profile adopts the backup catalog. Other months are preserved.</p>
       {replacing ? (
         <p>All existing stored data for {month} will be replaced. There is no undo. Keep a JSON backup of current data first.</p>
       ) : (
@@ -60,7 +63,7 @@ function RestoreConfirmation({ confirmation, onCancel, onConfirm }: {
 
 export function BudgetBackupPreview({ budgetContext, onRestored, onRestoreActivity }: {
   budgetContext: BudgetContext
-  onRestored: (budget: BudgetContext, month: string) => void
+  onRestored: (budget: BudgetContext & { catalog: CategoryCatalog }, month: string) => void
   onRestoreActivity: () => void
 }) {
   const [state, setState] = useState<PreviewState>({ status: 'idle' })
@@ -150,14 +153,16 @@ export function BudgetBackupPreview({ budgetContext, onRestored, onRestoreActivi
     if (!selected || selected.selection !== request.current) return
 
     try {
+      const rawCatalog = checkStoredCatalog(selected.document.catalog)
       const rawValue = localStorage.getItem(backupMonthKey(selected.document.month))
       updatePresence(rawValue === null ? 'absent' : 'existing')
-      const approval = { candidate: selected, context: budgetContext, rawValue }
+      const approval = { candidate: selected, context: budgetContext, rawValue, rawCatalog }
       activeConfirmation.current = approval
       setConfirmation(approval)
-    } catch {
+    } catch (error) {
       updatePresence('unknown')
-      setRestoreError('Could not check destination storage. Please try Restore backup… again.')
+      setRestoreError(error instanceof BudgetStorageError
+        ? error.message : 'Could not check destination storage. Please try Restore backup… again.')
     }
   }
 
@@ -187,29 +192,31 @@ export function BudgetBackupPreview({ budgetContext, onRestored, onRestoreActivi
     }
 
     let rawValue: string | null
+    let rawCatalog: string | null
     try {
+      rawCatalog = localStorage.getItem(CATALOG_KEY)
       rawValue = localStorage.getItem(prepared.key)
     } catch {
       updatePresence('unknown')
       setRestoreError('Could not recheck destination storage. No restoration was completed. Please review and confirm again.')
       return
     }
-    if (rawValue !== approval.rawValue) {
+    if (rawValue !== approval.rawValue || rawCatalog !== approval.rawCatalog) {
       updatePresence(rawValue === null ? 'absent' : 'existing')
-      setRestoreError('Destination data changed. No restoration was completed. Please review and confirm again.')
+      setRestoreError('Destination data or category catalog changed. No restoration was completed. Please review and confirm again.')
       return
     }
 
     // Synchronous read/check/write is a stale-data check, not a cross-tab lock.
     try {
-      localStorage.setItem(prepared.key, prepared.serializedBudget)
+      persistBudget(prepared.data, prepared.key, prepared.catalog)
     } catch {
       setRestoreError('Could not restore this budget. No restoration was completed. Please try again.')
       return
     }
 
     clearPreview()
-    onRestored({ month: prepared.month, data: prepared.data }, document.month)
+    onRestored({ month: prepared.month, data: prepared.data, catalog: prepared.catalog }, document.month)
   }
 
   return (
@@ -262,7 +269,7 @@ export function BudgetBackupPreview({ budgetContext, onRestored, onRestoreActivi
               </tr></thead>
               <tbody>
                 <tr><td>Income</td><th scope="row">Income</th><td>{state.document.income}</td></tr>
-                {spendingCategories.map(({ id, label }) => (
+                {state.document.catalog.categories.map(({ id, label }) => (
                   <tr key={id}>
                     <td>Spending</td><th scope="row">{label}</th><td>{state.document.spending[id]}</td>
                   </tr>

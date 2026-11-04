@@ -1,9 +1,11 @@
+import { CATALOG_KEY } from './budgetStorage'
+import { createCategoryCatalog } from './categoryCatalog'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import emptyFixture from '../fixtures/budget-backup/v2/valid/empty.json?raw'
-import mixedFixture from '../fixtures/budget-backup/v2/valid/mixed.json?raw'
-import representationFixture from '../fixtures/budget-backup/v2/valid/representation.json?raw'
+import emptyFixture from '../fixtures/budget-backup/v3/valid/empty.json?raw'
+import mixedFixture from '../fixtures/budget-backup/v3/valid/mixed.json?raw'
+import representationFixture from '../fixtures/budget-backup/v3/valid/representation.json?raw'
 import App from './App'
 import { emptyBudget, spendingCategories, type MonthlyBudget } from './budgetModel'
 
@@ -16,6 +18,7 @@ const openSettings = () => fireEvent.click(screen.getByRole('button', { name: 'S
 const backToBudget = () => fireEvent.click(screen.getByRole('button', { name: 'Back to budget' }))
 
 beforeEach(() => {
+  localStorage.setItem(CATALOG_KEY, JSON.stringify(createCategoryCatalog()))
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date(2026, 8, 22))
 })
@@ -30,12 +33,12 @@ afterEach(() => {
 
 const sourceOf = ({ income, spending, investments }: MonthlyBudget): MonthlyBudget => ({ income, spending, investments })
 const makeBudget = (): MonthlyBudget => ({
-  ...emptyBudget(), income: '200', investments: '30', spending: { ...emptyBudget().spending, travel: '40' },
+  ...emptyBudget(), income: '200', investments: '30', spending: { ...emptyBudget().spending, 'starter-10': '40' },
 })
 
 const renderStoredBudget = () => {
-  localStorage.setItem('finance-lab:budget:2026-09', JSON.stringify(makeBudget()))
-  localStorage.setItem('finance-lab:budget:2026-10', JSON.stringify(makeBudget()))
+  localStorage.setItem('finance-lab:v3:budget:2026-09', JSON.stringify(makeBudget()))
+  localStorage.setItem('finance-lab:v3:budget:2026-10', JSON.stringify(makeBudget()))
   localStorage.setItem('sample-unrelated-preference', 'keep exactly')
   const app = render(<App />)
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
@@ -110,7 +113,7 @@ const expectPreview = async (source: string) => {
     ['Investment', 'Investments', document.investments],
   ]
   const rows = within(table).getAllByRole('row').slice(1)
-  expect(rows).toHaveLength(17)
+  expect(rows).toHaveLength(12)
   rows.forEach((row, index) => {
     expect(Array.from(row.children).map((cell) => cell.textContent)).toEqual(expected[index])
   })
@@ -186,13 +189,13 @@ test.each([
   { name: 'an empty string', value: '' },
 ])('reports destination presence for $name without parsing or modifying it', async ({ value }) => {
   renderStoredBudget()
-  localStorage.setItem('finance-lab:budget:2027-01', value)
+  localStorage.setItem('finance-lab:v3:budget:2027-01', value)
   const assertReadOnly = observeReadOnly()
   const read = vi.spyOn(Storage.prototype, 'getItem')
   selectFile(backupFile(representationFixture))
   await expectPreview(representationFixture)
   expect(screen.getByText(existingNotice)).toBeTruthy()
-  expect(read.mock.calls).toEqual([['finance-lab:budget:2027-01']])
+  expect(read.mock.calls).toEqual([['finance-lab:v3:budget:2027-01']])
   assertReadOnly()
 })
 
@@ -202,7 +205,7 @@ test('reports an absent destination without creating its key', async () => {
   selectFile(backupFile(representationFixture))
   await expectPreview(representationFixture)
   expect(screen.getByText(absentNotice)).toBeTruthy()
-  expect(localStorage.getItem('finance-lab:budget:2027-01')).toBeNull()
+  expect(localStorage.getItem('finance-lab:v3:budget:2027-01')).toBeNull()
   assertReadOnly()
 })
 
@@ -216,13 +219,13 @@ test('keeps a valid preview when destination access throws and reports unknown, 
   await expectPreview(representationFixture)
   expect(screen.getByText(unknownNotice)).toBeTruthy()
   expect(screen.queryByText(absentNotice)).toBeNull()
-  expect(read.mock.calls).toEqual([['finance-lab:budget:2027-01']])
+  expect(read.mock.calls).toEqual([['finance-lab:v3:budget:2027-01']])
   assertReadOnly()
 })
 
 test.each(['0001-01', '0099-12'])('shows the exact %s month while checking the existing unpadded storage key', async (month) => {
   renderStoredBudget()
-  const key = `finance-lab:budget:${Number(month.slice(0, 4))}-${month.slice(5)}`
+  const key = `finance-lab:v3:budget:${Number(month.slice(0, 4))}-${month.slice(5)}`
   localStorage.setItem(key, 'sample existing data')
   const source = JSON.stringify({ ...JSON.parse(emptyFixture), month })
   const assertReadOnly = observeReadOnly()
@@ -478,7 +481,7 @@ test('rejects free-form markup and formulas without rendering or fetching them',
     selectFile(backupFile(JSON.stringify({ ...JSON.parse(mixedFixture), income })))
     expect((await screen.findByRole('alert')).textContent).toMatch(/income.*nonnegative/)
     expect(preview()).toBeNull()
-    expect(document.querySelector('strong, script, iframe, img')).toBeNull()
+    expect(document.querySelector('.backup-preview')!.querySelector('strong, script, iframe, img')).toBeNull()
   }
   expect(fetch).not.toHaveBeenCalled()
   expect(request).not.toHaveBeenCalled()

@@ -1,0 +1,27 @@
+{
+  "formatVersion": 3,
+  "month": "2027-02",
+  "catalog": {
+    "categories": [
+      {
+        "id": "custom-bike",
+        "label": "Bicycle, \"repairs\""
+      },
+      {
+        "id": "income",
+        "label": "Monthly income"
+      }
+    ],
+    "usedIds": [
+      "retired-01",
+      "custom-bike",
+      "income"
+    ]
+  },
+  "income": "100",
+  "spending": {
+    "custom-bike": "12.50",
+    "income": "7"
+  },
+  "investments": "5"
+}

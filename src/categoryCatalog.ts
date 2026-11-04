@@ -1,7 +1,6 @@
 /**
- * Proposed app-wide spending catalog, shared across all months. Array order is
+ * App-wide spending catalog, shared across all months. Array order is
  * display order. Investments remain separate and are not a starter category.
- * This module is not connected to the current UI, budgets, storage or exports.
  *
  * IDs are opaque, caller-supplied stable keys, never derived from labels or
  * translations. Carry usedIds forward with the catalog, including removed IDs;
@@ -99,4 +98,32 @@ export function reorderCategories(source: CategoryCatalog, ids: readonly string[
 export function removeCategory(source: CategoryCatalog, id: string): CategoryCatalog {
   findCategory(source, id)
   return catalog(source.categories.filter(category => category.id !== id), source.usedIds)
+}
+
+/** Validate persisted definitions without normalizing or guessing identities. */
+export function validateCategoryCatalog(value: unknown): CategoryCatalog {
+  const object = (item: unknown): item is Record<string, unknown> =>
+    typeof item === 'object' && item !== null && !Array.isArray(item)
+  if (!object(value) || Object.keys(value).length !== 2 ||
+      !Array.isArray(value.categories) || !Array.isArray(value.usedIds)) {
+    throw new Error('The category catalog must contain categories and usedIds arrays.')
+  }
+  const ids = new Set<string>()
+  for (const entry of value.categories) {
+    if (!object(entry) || Object.keys(entry).length !== 2 ||
+        typeof entry.id !== 'string' || typeof entry.label !== 'string') {
+      throw new Error('Each category must contain an ID and label.')
+    }
+    validateId(entry.id)
+    if (normalizeLabel(entry.label) !== entry.label) throw new Error('Category labels must be trimmed.')
+    if (ids.has(entry.id)) throw new Error('Category IDs must be unique.')
+    ids.add(entry.id)
+  }
+  const usedIds = value.usedIds
+  for (const id of usedIds) validateId(id)
+  if (new Set(usedIds).size !== usedIds.length ||
+      [...ids].some(id => !usedIds.includes(id))) {
+    throw new Error('Used IDs must be unique and include every active category ID.')
+  }
+  return catalog(value.categories as CategoryDefinition[], value.usedIds as string[])
 }

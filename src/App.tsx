@@ -1,20 +1,30 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { currentMonthKey, loadBudget, saveBudget } from './budgetStorage'
+import { currentMonthKey, loadBudget, loadCategoryCatalog, saveBudget } from './budgetStorage'
 import { BudgetExportError, serializeBudget, type BudgetExportFormat } from './budgetExport'
 import { downloadFile } from './downloadFile'
 import { BudgetBackupPreview } from './BudgetBackupPreview'
 import { localBudgetMonth } from './budgetRestore'
-import { budgetTotals, isAmount, spendingCategories, type SpendingCategoryId } from './budgetModel'
+import { budgetTotals, emptyBudget, isAmount, type MonthlyBudget } from './budgetModel'
+
+import { createCategoryCatalog, type CategoryCatalog } from './categoryCatalog'
+
+function readMonth(month: Date) {
+  try {
+    const catalog = loadCategoryCatalog()
+    return { month, catalog, data: loadBudget(currentMonthKey(month), catalog), loadError: null, edited: false }
+  } catch {
+    return { month, catalog: createCategoryCatalog(), data: emptyBudget(), edited: false,
+      loadError: 'Could not load this v3 budget or its category catalog. Editing and export are blocked to preserve stored amounts. Recover the catalog if needed, or use Settings to explicitly restore a valid backup for this month. No stored data was reset.' }
+  }
+}
 
 const formatAmount = (value: number) =>
   value.toLocaleString(undefined, { maximumFractionDigits: 2 })
 
 function App() {
-  const [budget, setBudget] = useState(() => {
-    const month = new Date()
-    return { month, data: loadBudget(currentMonthKey(month)) }
-  })
-  const { month, data } = budget
+  const [budget, setBudget] = useState(() => readMonth(new Date()))
+  const { month, data, catalog, loadError } = budget
+  const [saveError, setSaveError] = useState<string | null>(null)
   const monthKey = currentMonthKey(month)
   const [exportError, setExportError] = useState<string | null>(null)
   const [restoreNotice, setRestoreNotice] = useState<string | null>(null)
@@ -26,9 +36,9 @@ function App() {
   useEffect(() => {
     // Restoration has already persisted this exact state. Ordinary edits create
     // a new budget object and must still save, including the first restored edit.
-    if (budget === restoredBudget.current) return
-    saveBudget(data, monthKey)
-  }, [budget, monthKey, data])
+    if (!budget.edited || loadError || budget === restoredBudget.current) return
+    setSaveError(saveBudget(data, monthKey, catalog))
+  }, [budget, monthKey, data, catalog, loadError])
 
   useLayoutEffect(() => {
     if (restoreNotice) heading.current?.focus()
@@ -38,18 +48,21 @@ function App() {
     if (settingsOpen) heading.current?.focus()
   }, [settingsOpen])
 
-  const showRestoredBudget = (nextBudget: typeof budget, backupMonth: string) => {
+  const showRestoredBudget = (restored: { month: Date; data: MonthlyBudget; catalog: CategoryCatalog }, backupMonth: string) => {
+    const nextBudget = { ...restored, loadError: null, edited: false }
     restoredBudget.current = nextBudget
     setBudget(nextBudget)
+    setSaveError(null)
     setExportError(null)
     setRestoreNotice(`Restored budget for ${backupMonth}`)
     setSettingsOpen(false)
   }
-  const totals = budgetTotals(data)
+  const totals = budgetTotals(data, catalog)
 
   const changeMonth = (offset: number) => {
     const nextMonth = localBudgetMonth(month.getFullYear(), month.getMonth() + offset)
-    setBudget({ month: nextMonth, data: loadBudget(currentMonthKey(nextMonth)) })
+    setBudget(readMonth(nextMonth))
+    setSaveError(null)
     setExportError(null)
     setRestoreNotice(null)
   }
@@ -59,7 +72,7 @@ function App() {
       const { month: selectedMonth, data: selectedData } = budget
       const year = String(selectedMonth.getFullYear()).padStart(4, '0')
       const monthNumber = String(selectedMonth.getMonth() + 1).padStart(2, '0')
-      downloadFile(serializeBudget(`${year}-${monthNumber}`, selectedData, format))
+      downloadFile(serializeBudget(`${year}-${monthNumber}`, selectedData, format, catalog))
       setExportError(null)
     } catch (error) {
       setExportError(error instanceof BudgetExportError
@@ -68,14 +81,15 @@ function App() {
     }
   }
 
-  const updateAmount = (field: 'income' | 'investments' | SpendingCategoryId, value: string) => {
+  const updateAmount = (field: 'income' | 'investments' | 'spending', value: string, categoryId?: string) => {
     setExportError(null)
     setRestoreNotice(null)
     setBudget((current) => ({
       ...current,
+      edited: true,
       data: field === 'income' || field === 'investments'
         ? { ...current.data, [field]: value }
-        : { ...current.data, spending: { ...current.data.spending, [field]: value } },
+        : { ...current.data, spending: { ...current.data.spending, [categoryId!]: value } },
     }))
   }
 
@@ -91,6 +105,16 @@ function App() {
         </button>
       </header>
 
+      <aside className="upgrade-warning" aria-label="Experimental data upgrade warning">
+        <strong>Export before upgrading.</strong> This experimental version starts a new category data model.
+        {' '}Export every previous budget in the previous app before upgrading. Existing v2 data is kept
+        in separate browser storage but is not shown or migrated here. JSON v1/v2 backups cannot be
+        restored in this version. Keep the previous app and its exports for recovery; clearing site data
+        can permanently erase both versions.
+      </aside>
+      {loadError && <p role="alert">{loadError}</p>}
+      {saveError && <p role="alert">{saveError}</p>}
+
       <div hidden={settingsOpen}>
         {restoreNotice && <p role="status">{restoreNotice}</p>}
 
@@ -102,6 +126,7 @@ function App() {
           <button type="button" onClick={() => changeMonth(1)}>Next month</button>
         </div>
 
+        {!loadError && <>
         <section aria-labelledby="summary-heading">
           <h2 id="summary-heading">Summary</h2>
           <dl className="totals">
@@ -126,8 +151,8 @@ function App() {
 
         <section className="budget-section" aria-labelledby="spending-heading">
           <h2 id="spending-heading">Spending</h2>
-          {spendingCategories.map(({ id, label }) => (
-            <AmountInput key={id} id={id} label={label} value={data.spending[id]} onChange={(value) => updateAmount(id, value)} />
+          {catalog.categories.map(({ id, label }, index) => (
+            <AmountInput key={id} id={`spending-${index}`} label={label} value={data.spending[id]} onChange={(value) => updateAmount('spending', value, id)} />
           ))}
         </section>
 
@@ -135,6 +160,7 @@ function App() {
           <h2 id="investments-heading">Investments</h2>
           <AmountInput id="investments" label="Investments" value={data.investments} onChange={(value) => updateAmount('investments', value)} />
         </section>
+        </>}
       </div>
 
       <section hidden={!settingsOpen} aria-labelledby="data-backup-heading">
@@ -147,15 +173,15 @@ function App() {
         <div className="budget-export">
           <p>Selected budget: {month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.</p>
           <div className="export-actions">
-            <button type="button" aria-describedby="export-help" onClick={() => exportBudget('csv')}>
+            <button type="button" disabled={!!loadError} aria-describedby="export-help" onClick={() => exportBudget('csv')}>
               Export CSV
             </button>
-            <button type="button" aria-describedby="export-help" onClick={() => exportBudget('json')}>
+            <button type="button" disabled={!!loadError} aria-describedby="export-help" onClick={() => exportBudget('json')}>
               Export JSON backup
             </button>
           </div>
           <p id="export-help">
-            CSV is for inspection. JSON v2 is a lossless backup.
+            CSV is for inspection. JSON v3 is a lossless backup of this month and its category catalog.
           </p>
           {exportError && <p role="alert">{exportError}</p>}
         </div>

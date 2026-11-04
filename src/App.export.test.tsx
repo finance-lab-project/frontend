@@ -1,3 +1,4 @@
+import { createCategoryCatalog } from './categoryCatalog'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -31,9 +32,9 @@ test('exports the selected month and latest edits without storage access or muta
     const write = vi.spyOn(Storage.prototype, 'setItem')
     exportFile()
     expect(last().filename).toBe(`finance-lab-budget-${month}.json`)
-    expect(JSON.parse(last().content)).toEqual({ formatVersion: 2, month, ...emptyBudget(), income: '0010.00' })
+    expect(JSON.parse(last().content)).toEqual({ formatVersion: 3, month, catalog: createCategoryCatalog(), ...emptyBudget(), income: '0010.00' })
     exportFile('CSV')
-    expect(last().content.split('\r\n')).toHaveLength(19)
+    expect(last().content.split('\r\n')).toHaveLength(14)
     expect(read).not.toHaveBeenCalled()
     expect(write).not.toHaveBeenCalled()
     vi.restoreAllMocks()
@@ -57,16 +58,16 @@ test('blocks invalid drafts in both formats and clears stale errors after correc
 })
 
 test('exports in-memory data while storage is unavailable and handles download failure safely', () => {
+  setup()
   vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('unavailable') })
   vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('unavailable') })
-  setup()
   fireEvent.change(screen.getByRole('textbox', { name: 'Investments' }), { target: { value: '.5' } })
   vi.mocked(downloadFile).mockImplementationOnce(() => { throw new Error('Sample private failure') })
   exportFile()
-  expect(screen.getByRole('alert').textContent).toBe('Could not prepare the download. Please try exporting again.')
+  expect(screen.getAllByRole('alert').at(-1)!.textContent).toBe('Could not prepare the download. Please try exporting again.')
   exportFile()
   expect(JSON.parse(last().content).investments).toBe('.5')
-  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.getByRole('alert').textContent).toMatch(/Could not save/)
 })
 
 test('export buttons support keyboard activation', async () => {

@@ -1,10 +1,13 @@
+import customFixture from '../fixtures/budget-backup/v3/valid/custom.json?raw'
+import { CATALOG_KEY } from './budgetStorage'
+import { createCategoryCatalog } from './categoryCatalog'
 import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest'
-import emptyFixture from '../fixtures/budget-backup/v2/valid/empty.json?raw'
-import mixedFixture from '../fixtures/budget-backup/v2/valid/mixed.json?raw'
-import representationFixture from '../fixtures/budget-backup/v2/valid/representation.json?raw'
+import emptyFixture from '../fixtures/budget-backup/v3/valid/empty.json?raw'
+import mixedFixture from '../fixtures/budget-backup/v3/valid/mixed.json?raw'
+import representationFixture from '../fixtures/budget-backup/v3/valid/representation.json?raw'
 import App from './App'
 import { BudgetBackupPreview } from './BudgetBackupPreview'
 import { parseBudgetBackup } from './budgetBackup'
@@ -17,9 +20,9 @@ vi.mock('./downloadFile', () => ({ downloadFile: vi.fn() }))
 const nativeGet = Storage.prototype.getItem
 const nativeSet = Storage.prototype.setItem
 const nativeRemove = Storage.prototype.removeItem
-const september = 'finance-lab:budget:2026-09'
-const october = 'finance-lab:budget:2026-10'
-const january = 'finance-lab:budget:2027-01'
+const september = 'finance-lab:v3:budget:2026-09'
+const october = 'finance-lab:v3:budget:2026-10'
+const january = 'finance-lab:v3:budget:2027-01'
 const mixed = parseBudgetBackup(mixedFixture)
 
 // jsdom lacks the native dialog boundary. Focus is managed by the component;
@@ -37,6 +40,7 @@ afterAll(() => {
 })
 
 beforeEach(() => {
+  localStorage.setItem(CATALOG_KEY, JSON.stringify(createCategoryCatalog()))
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date(2026, 8, 22))
   vi.mocked(downloadFile).mockReset()
@@ -52,13 +56,13 @@ afterEach(() => {
 
 const sourceOf = ({ income, spending, investments }: MonthlyBudget): MonthlyBudget => ({ income, spending, investments })
 const makeBudget = (): MonthlyBudget => ({
-  ...emptyBudget(), income: '200', investments: '30', spending: { ...emptyBudget().spending, travel: '40' },
+  ...emptyBudget(), income: '200', investments: '30', spending: { ...emptyBudget().spending, 'starter-10': '40' },
 })
 
 const setup = () => {
   localStorage.setItem(september, JSON.stringify(makeBudget()))
   localStorage.setItem(october, JSON.stringify(makeBudget()))
-  localStorage.setItem('finance-lab:budget:2028-02', '  [sample untouched data] ')
+  localStorage.setItem('finance-lab:v3:budget:2028-02', '  [sample untouched data] ')
   localStorage.setItem('sample-preference', 'keep exactly')
   const app = render(<StrictMode><App /></StrictMode>)
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
@@ -144,10 +148,10 @@ const expectSuccess = (month: string) => {
 test.each([
   { name: 'empty', source: emptyFixture, offset: 1, totals: [0, 0, 0, 0] },
   { name: 'mixed', source: mixedFixture, offset: 0, totals: [100, 34.75, 20, 45.25] },
-  { name: 'representation', source: representationFixture, offset: 4, totals: [10, 2033.073, 0.001, -2023.074] },
+  { name: 'representation', source: representationFixture, offset: 4, totals: [10, 2011.734, 0.001, -2001.735] },
 ])('round-trips the $name fixture through export, preview, restore, reload, and re-export', async ({ source, offset, totals }) => {
   const approved = parseBudgetBackup(source)
-  const key = `finance-lab:budget:${approved.month}`
+  const key = `finance-lab:v3:budget:${approved.month}`
   localStorage.setItem(key, JSON.stringify(sourceOf(approved)))
   localStorage.setItem('sample-preference', 'keep exactly')
   const app = render(<StrictMode><App /></StrictMode>)
@@ -169,7 +173,7 @@ test.each([
   expect(exported()).toEqual(approved)
   expect(loadBudget(key)).toEqual(sourceOf(approved))
   expect(budgetSnapshot().totals).toEqual(totals.map((value) => value.toLocaleString(undefined, { maximumFractionDigits: 2 })))
-  expect(JSON.parse(nativeGet.call(localStorage, key)!).spending.travel).toEqual(approved.spending.travel)
+  expect(JSON.parse(nativeGet.call(localStorage, key)!).spending['starter-10']).toEqual(approved.spending['starter-10'])
 
   app.unmount()
   render(<App />)
@@ -216,7 +220,7 @@ test.each([
   await choose(representationFixture)
   begin()
   const dialog = screen.getByRole('dialog', { name: 'Restore backup for 2027-01' })
-  expect(dialog.textContent).toMatch(/income, all fifteen spending categories, and investments.*2027-01.*including empty amounts/i)
+  expect(dialog.textContent).toMatch(/income, all 10 spending categories, and investments.*2027-01.*including empty amounts/i)
   expect(dialog.textContent).toContain('Success will display that month')
   expect(finalButton().textContent).toBe(`${action} month 2027-01`)
   if (raw === null) expect(dialog.textContent).toContain('No stored budget was found')
@@ -263,7 +267,7 @@ test.each([
   confirm()
   observed.unchanged()
   expect(screen.queryByRole('dialog')).toBeNull()
-  expect(screen.getByRole('alert').textContent).toMatch(/data changed.*review and confirm again/)
+  expect(screen.getByRole('alert').textContent).toMatch(/(data|catalog) changed.*review and confirm again/)
   expect(screen.queryByText(/Restored budget for/)).toBeNull()
   begin()
   expect(screen.queryByRole('alert')).toBeNull()
@@ -457,7 +461,7 @@ test.each([
   { month: '9999-12', next: '9999-11', offset: -1, display: 'December 9999' },
 ])('restores $month with its exact key and local year, then navigates to $next and back', async ({ month, next, offset, display }) => {
   setup()
-  const key = `finance-lab:budget:${Number(month.slice(0, 4))}-${month.slice(5)}`
+  const key = `finance-lab:v3:budget:${Number(month.slice(0, 4))}-${month.slice(5)}`
   localStorage.setItem(key, '[]')
   const approved = { ...mixed, month }
   await choose(JSON.stringify(approved))
@@ -498,4 +502,76 @@ test('clears stale restore feedback on selection, clear, and a new attempt', asy
   expectSuccess('2026-09')
   await choose()
   expect(screen.queryByText('Restored budget for 2026-09')).toBeNull()
+})
+
+test('a fresh profile explicitly adopts a custom backup catalog for all months, including a category ID named income', async () => {
+  localStorage.removeItem(CATALOG_KEY)
+  localStorage.setItem('finance-lab:budget:2027-02', 'synthetic v2 data')
+  const app = render(<App />)
+  await choose(customFixture)
+  expect(localStorage.getItem(CATALOG_KEY)).toBeNull()
+  begin()
+  expect(screen.getByRole('dialog').textContent).toMatch(/fresh profile adopts the backup catalog/)
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(localStorage.getItem(CATALOG_KEY)).toBeNull()
+  begin()
+  confirm()
+  expectSuccess('2027-02')
+  expect(exported()).toEqual(parseBudgetBackup(customFixture))
+  const spending = within(screen.getByRole('region', { name: 'Spending' }))
+  fireEvent.change(spending.getByRole('textbox', { name: 'Monthly income' }), { target: { value: '9' } })
+  expect(screen.getByRole('status', { name: 'Income' }).textContent).toBe('100')
+  expect(screen.getByRole('status', { name: 'Planned Spending' }).textContent).toBe('21.5')
+  expect(exported().spending.income).toBe('9')
+  navigate(1)
+  expect(screen.getByRole('textbox', { name: 'Bicycle, "repairs"' })).toHaveProperty('value', '')
+  navigate(-1)
+  expect(screen.getByRole('textbox', { name: 'Bicycle, "repairs"' })).toHaveProperty('value', '12.50')
+  expect(localStorage.getItem('finance-lab:budget:2027-02')).toBe('synthetic v2 data')
+  app.unmount()
+  render(<App />)
+  navigate(5)
+  expect(exported().spending).toEqual({ 'custom-bike': '12.50', income: '9' })
+})
+
+test('previewing a different catalog is read-only and restore refuses to replace the app-wide catalog', async () => {
+  setup()
+  const observed = observe()
+  await choose(customFixture)
+  expect(screen.getByRole('table').textContent).toContain('Bicycle, "repairs"')
+  begin()
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(screen.getByRole('alert').textContent).toMatch(/different app-wide category catalog.*separate browser profile/)
+  observed.unchanged()
+})
+
+test('changing the catalog after confirmation invalidates approval without writing any month', async () => {
+  setup()
+  await choose()
+  begin()
+  const catalog = createCategoryCatalog()
+  nativeSet.call(localStorage, CATALOG_KEY, JSON.stringify({ ...catalog, usedIds: [...catalog.usedIds, 'retired-example'] }))
+  const observed = observe()
+  confirm()
+  expect(screen.getByRole('alert').textContent).toMatch(/catalog changed/)
+  observed.unchanged()
+})
+
+test('a corrupt selected month stays blocked until an explicit replacement is confirmed', async () => {
+  localStorage.setItem(september, '{synthetic broken budget')
+  render(<App />)
+  expect(screen.queryByRole('textbox')).toBeNull()
+  expect(screen.getByRole('alert').textContent).toMatch(/No stored data was reset/)
+  const emptySeptember = JSON.stringify({ ...JSON.parse(emptyFixture), month: '2026-09' })
+  await choose(emptySeptember)
+  begin()
+  expect(screen.getByRole('dialog').textContent).toMatch(/All existing stored data.*no undo/)
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(localStorage.getItem(september)).toBe('{synthetic broken budget')
+  begin()
+  confirm()
+  expectSuccess('2026-09')
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(loadBudget(september)).toEqual(emptyBudget())
+  expect(screen.getAllByRole('textbox')).toHaveLength(12)
 })

@@ -13,11 +13,12 @@ export function localBudgetMonth(year: number, monthIndex: number) {
 export function prepareBudgetRestore(document: BudgetBackup) {
   const source = validateBudgetData(document.month, {
     income: document.income, spending: document.spending, investments: document.investments,
-  })
+  }, document.catalog)
   const month = localBudgetMonth(Number(source.month.slice(0, 4)), Number(source.month.slice(5)) - 1)
   return {
     month,
     data: source.budget,
+    catalog: document.catalog,
     key: currentMonthKey(month),
     serializedBudget: JSON.stringify(source.budget),
   }

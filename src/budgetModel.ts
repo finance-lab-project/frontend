@@ -1,32 +1,17 @@
-// Array order is the display/export order; IDs are persisted, labels are not.
-export const spendingCategories = ([
-  ['groceries', 'Groceries'],
-  ['restaurants', 'Restaurants'],
-  ['utilities', 'Utilities'],
-  ['transport', 'Transport'],
-  ['household', 'Household'],
-  ['health', 'Health'],
-  ['personal-care', 'Personal care'],
-  ['clothing', 'Clothing'],
-  ['subscriptions', 'Subscriptions'],
-  ['education', 'Education'],
-  ['tech', 'Tech'],
-  ['culture', 'Culture'],
-  ['entertainment', 'Entertainment'],
-  ['gifts', 'Gifts'],
-  ['travel', 'Travel'],
-] as const).map(([id, label], order) => ({ id, label, order, type: 'spending' as const }))
+import { createCategoryCatalog, type CategoryCatalog } from './categoryCatalog'
 
-export type SpendingCategoryId = typeof spendingCategories[number]['id']
+// The reviewed starter catalog; custom budgets use their app-wide catalog.
+export const spendingCategories = createCategoryCatalog().categories
+
 export type MonthlyBudget = {
   income: string
-  spending: Record<SpendingCategoryId, string>
+  spending: Record<string, string>
   investments: string
 }
 
-export const emptyBudget = (): MonthlyBudget => ({
+export const emptyBudget = (catalog: CategoryCatalog = createCategoryCatalog()): MonthlyBudget => ({
   income: '',
-  spending: Object.fromEntries(spendingCategories.map(({ id }) => [id, ''])) as MonthlyBudget['spending'],
+  spending: Object.fromEntries(catalog.categories.map(({ id }) => [id, ''])) as MonthlyBudget['spending'],
   investments: '',
 })
 
@@ -35,10 +20,14 @@ export const isAmount = (value: string) => value === '' || (
   amountPattern.exec(value)?.[0] === value && Number.isFinite(Number(value))
 )
 
-export const budgetTotals = (budget: MonthlyBudget) => {
+export const budgetTotals = (budget: MonthlyBudget, catalog: CategoryCatalog = createCategoryCatalog()) => {
+  if (Object.keys(budget.spending).length !== catalog.categories.length ||
+      catalog.categories.some(({ id }) => !Object.hasOwn(budget.spending, id))) {
+    throw new Error('Spending must contain exactly the catalog category IDs; no amounts were discarded.')
+  }
   const amount = (value: string) => isAmount(value) ? Number(value) : 0
   const income = amount(budget.income)
-  const spending = spendingCategories.reduce((sum, { id }) => sum + amount(budget.spending[id]), 0)
+  const spending = catalog.categories.reduce((sum, { id }) => sum + amount(budget.spending[id]), 0)
   const investments = amount(budget.investments)
   return { income, spending, investments, remaining: income - spending - investments }
 }

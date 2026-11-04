@@ -1,0 +1,2 @@
+# CSV export fixtures intentionally contain CRLF record terminators.
+fixtures/budget-export/*.csv -text whitespace=cr-at-eol

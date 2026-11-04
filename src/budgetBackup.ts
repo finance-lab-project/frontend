@@ -1,11 +1,12 @@
-import { isAmount, spendingCategories, type MonthlyBudget } from './budgetModel'
+import { isAmount, type MonthlyBudget } from './budgetModel'
+import { createCategoryCatalog, validateCategoryCatalog, type CategoryCatalog } from './categoryCatalog'
 
-export type BudgetBackup = MonthlyBudget & { formatVersion: 2; month: string }
+export type BudgetBackup = MonthlyBudget & { formatVersion: 3; month: string; catalog: CategoryCatalog }
 
 type BackupErrorReason =
   | 'INVALID_JSON' | 'INVALID_DOCUMENT' | 'MISSING_PROPERTY' | 'UNEXPECTED_PROPERTY'
   | 'INVALID_VERSION_TYPE' | 'UNSUPPORTED_VERSION' | 'INVALID_MONTH'
-  | 'INVALID_SPENDING_TYPE' | 'INVALID_FIELD_TYPE' | 'INVALID_AMOUNT'
+  | 'INVALID_CATALOG' | 'INVALID_SPENDING_TYPE' | 'INVALID_FIELD_TYPE' | 'INVALID_AMOUNT'
 
 export class BudgetBackupError extends Error {
   readonly reason: BackupErrorReason
@@ -20,7 +21,7 @@ export class BudgetBackupError extends Error {
 }
 
 const sourceFields = ['income', 'spending', 'investments'] as const
-const documentFields = ['formatVersion', 'month', ...sourceFields] as const
+const documentFields = ['formatVersion', 'month', 'catalog', ...sourceFields] as const
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
@@ -46,29 +47,30 @@ function validateAmount(value: unknown, path: string) {
   }
 }
 
-export function validateMonthlyBudget(value: unknown): MonthlyBudget {
+export function validateMonthlyBudget(value: unknown, catalog: CategoryCatalog = createCategoryCatalog()): MonthlyBudget {
   if (!isObject(value)) {
     throw new BudgetBackupError('INVALID_DOCUMENT', '$', 'The budget must be an object.')
   }
+  validateCategoryCatalog(catalog)
   validateFields(value, sourceFields, '', 'The budget must contain only income, spending, and investments.')
   validateAmount(value.income, 'income')
   if (!isObject(value.spending)) {
     throw new BudgetBackupError('INVALID_SPENDING_TYPE', 'spending', 'Spending must be an object.')
   }
-  validateFields(value.spending, spendingCategories.map(({ id }) => id), 'spending.',
-    'Spending must contain exactly the fifteen supported category IDs.')
-  for (const { id } of spendingCategories) validateAmount(value.spending[id], `spending.${id}`)
+  validateFields(value.spending, catalog.categories.map(({ id }) => id), 'spending.',
+    'Spending must contain exactly the catalog category IDs; missing or unknown amounts cannot be discarded.')
+  for (const { id } of catalog.categories) validateAmount(value.spending[id], `spending.${id}`)
   validateAmount(value.investments, 'investments')
   return value as MonthlyBudget
 }
 
-export function validateBudgetData(month: unknown, budget: unknown) {
+export function validateBudgetData(month: unknown, budget: unknown, catalog: CategoryCatalog = createCategoryCatalog()) {
   if (typeof month !== 'string' || month.length !== 7 ||
       !/^(?!0000)[0-9]{4}-(?:0[1-9]|1[0-2])$/.test(month)) {
     throw new BudgetBackupError('INVALID_MONTH', 'month',
       'The selected month must use YYYY-MM with a year from 0001 to 9999.')
   }
-  return { month, budget: validateMonthlyBudget(budget) }
+  return { month, budget: validateMonthlyBudget(budget, catalog) }
 }
 
 export function parseBudgetBackup(text: string): BudgetBackup {
@@ -81,17 +83,29 @@ export function parseBudgetBackup(text: string): BudgetBackup {
   if (!isObject(document)) {
     throw new BudgetBackupError('INVALID_DOCUMENT', '$', 'The backup must be a JSON object.')
   }
-  validateFields(document, documentFields, '',
-    'The backup must contain only formatVersion, month, income, spending, and investments.')
-  if (typeof document.formatVersion !== 'number') {
-    throw new BudgetBackupError('INVALID_VERSION_TYPE', 'formatVersion', 'The backup formatVersion must be the number 2.')
+  // Check the version before current fields: legacy documents are unsupported,
+  // never interpreted as missing/empty configurable-category budgets.
+  const version = Object.hasOwn(document, 'formatVersion') ? document.formatVersion : document.version
+  if (version === undefined) {
+    throw new BudgetBackupError('MISSING_PROPERTY', 'formatVersion', 'The backup must declare formatVersion 3.')
   }
-  if (document.formatVersion !== 2) {
+  if (typeof version !== 'number') {
+    throw new BudgetBackupError('INVALID_VERSION_TYPE', 'formatVersion', 'The backup formatVersion must be the number 3.')
+  }
+  if (version !== 3) {
     throw new BudgetBackupError('UNSUPPORTED_VERSION', 'formatVersion',
-      'This backup version is unsupported. Only version 2 is supported.')
+      'Unsupported backup version. Only JSON v3 is supported. Open v1/v2 backups in the previous app; automatic migration is not available.')
+  }
+  validateFields(document, documentFields, '',
+    'The backup must contain only formatVersion, month, catalog, income, spending, and investments.')
+  let catalog: CategoryCatalog
+  try {
+    catalog = validateCategoryCatalog(document.catalog)
+  } catch {
+    throw new BudgetBackupError('INVALID_CATALOG', 'catalog', 'The backup category catalog is invalid; IDs, labels, order, and used IDs must be complete.')
   }
   const { month, budget } = validateBudgetData(document.month, {
     income: document.income, spending: document.spending, investments: document.investments,
-  })
-  return { formatVersion: 2, month, ...budget }
+  }, catalog)
+  return { formatVersion: 3, month, catalog, ...budget }
 }
