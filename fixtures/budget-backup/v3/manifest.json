@@ -1,0 +1,56 @@
+[
+  {
+    "file": "valid/empty.json",
+    "valid": true,
+    "reason": null,
+    "path": null
+  },
+  {
+    "file": "valid/mixed.json",
+    "valid": true,
+    "reason": null,
+    "path": null
+  },
+  {
+    "file": "valid/representation.json",
+    "valid": true,
+    "reason": null,
+    "path": null
+  },
+  {
+    "file": "valid/custom.json",
+    "valid": true,
+    "reason": null,
+    "path": null
+  },
+  {
+    "file": "invalid/legacy-v1.json",
+    "valid": false,
+    "reason": "UNSUPPORTED_VERSION",
+    "path": "formatVersion"
+  },
+  {
+    "file": "invalid/legacy-v2.json",
+    "valid": false,
+    "reason": "UNSUPPORTED_VERSION",
+    "path": "formatVersion"
+  },
+  {
+    "file": "invalid/missing-amount.json",
+    "valid": false,
+    "reason": "MISSING_PROPERTY",
+    "path": "spending.starter-10"
+  },
+  {
+    "file": "invalid/orphan-amount.json",
+    "valid": false,
+    "reason": "UNEXPECTED_PROPERTY",
+    "path": "spending.removed-id"
+  },
+  {
+    "file": "invalid/duplicate-id.json",
+    "valid": false,
+    "reason": "INVALID_CATALOG",
+    "path": "catalog"
+  }
+]

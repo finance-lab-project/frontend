@@ -1,3 +1,4 @@
+import { createCategoryCatalog } from './categoryCatalog'
 import { emptyBudget } from './budgetModel'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
@@ -14,7 +15,7 @@ afterEach(() => {
 })
 
 describe('backup destination presence', () => {
-  const key = 'finance-lab:budget:2026-09'
+  const key = 'finance-lab:v3:budget:2026-09'
 
   test.each([
     [
@@ -42,7 +43,7 @@ describe('backup destination presence', () => {
   })
 
   test('reports absent only for a missing destination key', () => {
-    localStorage.setItem('finance-lab:budget:2026-10', 'Other sample budget')
+    localStorage.setItem('finance-lab:v3:budget:2026-10', 'Other sample budget')
     const read = vi.spyOn(Storage.prototype, 'getItem')
 
     expect(getBudgetPresence('2026-09')).toBe('absent')
@@ -73,7 +74,7 @@ describe('backup destination presence', () => {
   })
 
   test.each(['0001', '0099'])('uses the existing numeric-year storage key for %s', (year) => {
-    const lowYearKey = `finance-lab:budget:${Number(year)}-09`
+    const lowYearKey = `finance-lab:v3:budget:${Number(year)}-09`
     localStorage.setItem(lowYearKey, 'Sample stored data')
     const read = vi.spyOn(Storage.prototype, 'getItem')
 
@@ -83,9 +84,9 @@ describe('backup destination presence', () => {
 })
 
 describe('independent monthly budgets', () => {
-  const monthA = 'finance-lab:budget:2026-09'
-  const monthB = 'finance-lab:budget:2026-10'
-  const monthC = 'finance-lab:budget:2026-11'
+  const monthA = 'finance-lab:v3:budget:2026-09'
+  const monthB = 'finance-lab:v3:budget:2026-10'
+  const monthC = 'finance-lab:v3:budget:2026-11'
   const budgetA = { ...emptyBudget(), income: '00100.00', investments: '20' }
   const budgetB = { ...emptyBudget(), income: '.5', investments: '0.00' }
 
@@ -102,7 +103,7 @@ describe('independent monthly budgets', () => {
   test('saves edits to one month without changing the other document', () => {
     const savedB = localStorage.getItem(monthB)
     const editedA = loadBudget(monthA)
-    editedA.spending.travel = '1e+2'
+    editedA.spending['starter-10'] = '1e+2'
 
     saveBudget(editedA, monthA)
 
@@ -125,7 +126,7 @@ describe('independent monthly budgets', () => {
 })
 
 test('uses the same key throughout a local calendar month', () => {
-  const expectedKey = 'finance-lab:budget:2026-09'
+  const expectedKey = 'finance-lab:v3:budget:2026-09'
   // Model local midnight at UTC+03:00 independently of the host timezone.
   const monthStart = Object.assign(new Date('2026-09-01T00:00:00+03:00'), {
     getMonth: () => 8,
@@ -148,14 +149,14 @@ test('distinguishes December from January across a year boundary', () => {
   expect(yearStart.getUTCMonth()).toBe(11)
   expect(yearStart.getUTCFullYear()).toBe(2026)
   expect(currentMonthKey(new Date(2026, 11, 31, 23, 59, 59))).toBe(
-    'finance-lab:budget:2026-12',
+    'finance-lab:v3:budget:2026-12',
   )
-  expect(currentMonthKey(yearStart)).toBe('finance-lab:budget:2027-01')
+  expect(currentMonthKey(yearStart)).toBe('finance-lab:v3:budget:2027-01')
 })
 
 test('distinguishes the same month in different years', () => {
-  expect(currentMonthKey(new Date(2026, 8, 21))).toBe('finance-lab:budget:2026-09')
-  expect(currentMonthKey(new Date(2027, 8, 21))).toBe('finance-lab:budget:2027-09')
+  expect(currentMonthKey(new Date(2026, 8, 21))).toBe('finance-lab:v3:budget:2026-09')
+  expect(currentMonthKey(new Date(2027, 8, 21))).toBe('finance-lab:v3:budget:2027-09')
 })
 
 
@@ -165,23 +166,24 @@ test.each([
   JSON.stringify({ ...emptyBudget(), remaining: '10' }),
   JSON.stringify({ ...emptyBudget(), spending: {} }),
   JSON.stringify({ ...emptyBudget(), investments: '-1' }),
-])('resets incompatible selected data without scanning or changing other keys: %s', (raw) => {
+])('rejects incompatible selected data without scanning or changing other keys: %s', (raw) => {
   localStorage.setItem('selected', raw)
   localStorage.setItem('other', 'keep')
   const read = vi.spyOn(Storage.prototype, 'getItem')
   const write = vi.spyOn(Storage.prototype, 'setItem')
   const keys = vi.spyOn(Storage.prototype, 'key')
-  expect(loadBudget('selected')).toEqual(emptyBudget())
-  expect(read).toHaveBeenCalledExactlyOnceWith('selected')
+  expect(() => loadBudget('selected', createCategoryCatalog())).toThrow()
+  expect(localStorage.getItem('selected')).toBe(raw)
+  expect(read).toHaveBeenCalledWith('selected')
   expect(write).not.toHaveBeenCalled()
   expect(keys).not.toHaveBeenCalled()
 })
 
-test('storage failure leaves loading and saving usable', () => {
+test('storage failure blocks loading and reports unsaved edits', () => {
   vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('unavailable') })
   vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('unavailable') })
-  expect(loadBudget()).toEqual(emptyBudget())
-  expect(() => saveBudget(emptyBudget())).not.toThrow()
+  expect(() => loadBudget()).toThrow()
+  expect(saveBudget(emptyBudget())).toMatch(/Could not save/)
 })
 
 test('never persists invalid draft amounts', () => {

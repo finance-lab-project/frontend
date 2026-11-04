@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
-import emptyText from '../fixtures/budget-backup/v2/valid/empty.json?raw'
-import representationText from '../fixtures/budget-backup/v2/valid/representation.json?raw'
+import emptyText from '../fixtures/budget-backup/v3/valid/empty.json?raw'
+import representationText from '../fixtures/budget-backup/v3/valid/representation.json?raw'
 import { BudgetBackupError } from './budgetBackup'
 import { BudgetBackupFileError, MAX_BACKUP_BYTES, readBudgetBackupFile } from './budgetBackupFile'
 

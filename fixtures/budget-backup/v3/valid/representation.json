@@ -1,0 +1,74 @@
+{
+  "formatVersion": 3,
+  "month": "2027-01",
+  "catalog": {
+    "categories": [
+      {
+        "id": "starter-01",
+        "label": "Housing & utilities"
+      },
+      {
+        "id": "starter-02",
+        "label": "Groceries"
+      },
+      {
+        "id": "starter-03",
+        "label": "Restaurants & food delivery"
+      },
+      {
+        "id": "starter-04",
+        "label": "Transport"
+      },
+      {
+        "id": "starter-05",
+        "label": "Healthcare & personal care"
+      },
+      {
+        "id": "starter-06",
+        "label": "Clothing & household"
+      },
+      {
+        "id": "starter-07",
+        "label": "Subscriptions & communications"
+      },
+      {
+        "id": "starter-08",
+        "label": "Education & hobbies"
+      },
+      {
+        "id": "starter-09",
+        "label": "Loans, insurance & taxes"
+      },
+      {
+        "id": "starter-10",
+        "label": "Other & irregular expenses"
+      }
+    ],
+    "usedIds": [
+      "starter-01",
+      "starter-02",
+      "starter-03",
+      "starter-04",
+      "starter-05",
+      "starter-06",
+      "starter-07",
+      "starter-08",
+      "starter-09",
+      "starter-10"
+    ]
+  },
+  "income": "0010.00",
+  "spending": {
+    "starter-01": "0.00",
+    "starter-02": ".5",
+    "starter-03": "1.234",
+    "starter-04": "1e3",
+    "starter-05": "1e+3",
+    "starter-06": "0",
+    "starter-07": "1e-9999",
+    "starter-08": "",
+    "starter-09": "2.00",
+    "starter-10": "8"
+  },
+  "investments": "1E-3"
+}

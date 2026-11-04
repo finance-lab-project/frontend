@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import representation from '../fixtures/budget-backup/v2/valid/representation.json'
+import representation from '../fixtures/budget-backup/v3/valid/representation.json'
 import sampleCsv from '../fixtures/budget-export/finance-lab-budget-2027-01.csv?raw'
 import sampleJson from '../fixtures/budget-export/finance-lab-budget-2027-01.json?raw'
 import { emptyBudget, spendingCategories } from './budgetModel'
@@ -8,7 +8,7 @@ import { BudgetExportError, serializeBudget } from './budgetExport'
 const source = { income: representation.income, spending: representation.spending, investments: representation.investments }
 afterEach(() => vi.restoreAllMocks())
 
-test('matches independently derived v2 JSON and normalized CSV fixtures exactly', () => {
+test('matches independently derived v3 JSON and normalized CSV fixtures exactly', () => {
   expect(serializeBudget(representation.month, source, 'json')).toEqual({
     content: sampleJson, mimeType: 'application/json', filename: 'finance-lab-budget-2027-01.json',
   })
@@ -20,9 +20,9 @@ test('matches independently derived v2 JSON and normalized CSV fixtures exactly'
 test('empty CSV includes income, every spending category in order, and investments', () => {
   const csv = serializeBudget('2026-09', emptyBudget(), 'csv').content
   expect(csv.split('\r\n')).toEqual([
-    '\uFEFF"Type","Category","Amount"', '"Income","Income",""',
-    ...spendingCategories.map(({ label }) => `"Spending","${label}",""`),
-    '"Investment","Investments",""', '',
+    '\uFEFF"Type","Category ID","Category","Amount"', '"Income","","Income",""',
+    ...spendingCategories.map(({ id, label }) => `"Spending","${id}","${label}",""`),
+    '"Investment","","Investments",""', '',
   ])
 })
 

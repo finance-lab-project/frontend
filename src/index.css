@@ -240,3 +240,13 @@ h2 {
   .month-navigation { gap: 0.5rem; }
   .month-navigation button { padding: 0.4rem; }
 }
+
+.upgrade-warning {
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #b45309;
+  border-radius: 0.5rem;
+  background: #fffbeb;
+}
+
+.amount-field label { overflow-wrap: anywhere; }

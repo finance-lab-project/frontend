@@ -1,23 +1,23 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import manifest from '../fixtures/budget-backup/v2/manifest.json'
+import manifest from '../fixtures/budget-backup/v3/manifest.json'
 import sampleJson from '../fixtures/budget-export/finance-lab-budget-2027-01.json?raw'
 import { BudgetBackupError, parseBudgetBackup, validateBudgetData } from './budgetBackup'
 import { emptyBudget, spendingCategories } from './budgetModel'
 import { serializeBudget } from './budgetExport'
 
-const fixtures = import.meta.glob<string>('../fixtures/budget-backup/v2/{valid,invalid}/*', {
+const fixtures = import.meta.glob<string>('../fixtures/budget-backup/v3/{valid,invalid}/*', {
   eager: true,
   query: '?raw',
   import: 'default',
 })
-const fixtureText = (file: string) => fixtures[`../fixtures/budget-backup/v2/${file}`]
+const fixtureText = (file: string) => fixtures[`../fixtures/budget-backup/v3/${file}`]
 const emptyDocument = () => JSON.parse(fixtureText('valid/empty.json'))
 
 afterEach(() => vi.restoreAllMocks())
 
 test('the raw fixture inputs cover every manifest entry exactly once', () => {
   expect(Object.keys(fixtures).sort()).toEqual(
-    manifest.map(({ file }) => `../fixtures/budget-backup/v2/${file}`).sort(),
+    manifest.map(({ file }) => `../fixtures/budget-backup/v3/${file}`).sort(),
   )
 })
 
@@ -36,7 +36,7 @@ describe.each(manifest)('$file', ({ file, valid, reason, path }) => {
 
     if (valid) {
       expect(parseBudgetBackup(input)).toEqual(JSON.parse(input))
-      expect(Object.keys(parseBudgetBackup(input).spending)).toHaveLength(15)
+      expect(Object.keys(parseBudgetBackup(input).spending)).toHaveLength(JSON.parse(input).catalog.categories.length)
     } else {
       expect(() => parseBudgetBackup(input)).toThrow(BudgetBackupError)
       expect(() => parseBudgetBackup(input)).toThrow(expect.objectContaining({ reason, path }))
@@ -53,7 +53,7 @@ test.each(manifest.filter(({ valid }) => valid))(
   'preserves fresh JSON export of $file through validation',
   ({ file }) => {
     const document = JSON.parse(fixtureText(file))
-    const exported = serializeBudget(document.month, { income: document.income, spending: document.spending, investments: document.investments }, 'json')
+    const exported = serializeBudget(document.month, { income: document.income, spending: document.spending, investments: document.investments }, 'json', document.catalog)
     expect(parseBudgetBackup(exported.content)).toEqual(document)
   },
 )
@@ -62,10 +62,10 @@ test('accepts the retained synthetic JSON export with all original parsed values
   expect(parseBudgetBackup(sampleJson)).toEqual(JSON.parse(sampleJson))
 })
 
-test('accepts numeric version spellings with value 2', () => {
-  for (const version of ['2.0', '2e0', '2.00']) {
-    const input = JSON.stringify(emptyDocument()).replace('"formatVersion":2', `"formatVersion":${version}`)
-    expect(parseBudgetBackup(input).formatVersion).toBe(2)
+test('accepts numeric version spellings with value 3', () => {
+  for (const version of ['3.0', '3e0', '3.00']) {
+    const input = JSON.stringify(emptyDocument()).replace('"formatVersion":3', `"formatVersion":${version}`)
+    expect(parseBudgetBackup(input).formatVersion).toBe(3)
   }
 })
 
@@ -75,7 +75,7 @@ test.each(['1', true, false, null, {}, []])('rejects version of the wrong type: 
   )
 })
 
-test.each([0, 1, 3, -1, 2.5])('rejects unsupported numeric version %s', (formatVersion) => {
+test.each([0, 1, 2, 4, -1, 3.5])('rejects unsupported numeric version %s', (formatVersion) => {
   expect(() => parseBudgetBackup(JSON.stringify({ ...emptyDocument(), formatVersion }))).toThrow(
     expect.objectContaining({ reason: 'UNSUPPORTED_VERSION', path: 'formatVersion' }),
   )
@@ -103,7 +103,7 @@ test.each([
   )
 })
 
-test.each(['formatVersion', 'month', 'income', 'spending', 'investments'])('rejects missing root property %s', (field) => {
+test.each(['formatVersion', 'month', 'catalog', 'income', 'spending', 'investments'])('rejects missing root property %s', (field) => {
   const document = emptyDocument()
   delete document[field]
   expect(() => parseBudgetBackup(JSON.stringify(document))).toThrow(
@@ -172,9 +172,32 @@ test('diagnostics never include untrusted property names or source text in messa
   document.spending['Sample private field'] = 'Sample private value'
   expect(() => parseBudgetBackup(JSON.stringify(document))).toThrow(
     expect.objectContaining({ reason: 'UNEXPECTED_PROPERTY', path: 'spending.Sample private field',
-      message: 'Spending must contain exactly the fifteen supported category IDs.' }),
+      message: 'Spending must contain exactly the catalog category IDs; missing or unknown amounts cannot be discarded.' }),
   )
   expect(() => parseBudgetBackup('{"Sample private value":')).toThrow(
     expect.objectContaining({ reason: 'INVALID_JSON', path: '$', message: 'The backup must contain valid JSON.' }),
+  )
+})
+
+const legacyFixtures = import.meta.glob<string>('../fixtures/budget-backup/{v1,v2}/valid/*', {
+  eager: true, query: '?raw', import: 'default',
+})
+test.each(Object.entries(legacyFixtures))('clearly rejects the historical backup %s', (_path, text) => {
+  expect(() => parseBudgetBackup(text)).toThrow(expect.objectContaining({ reason: 'UNSUPPORTED_VERSION' }))
+  expect(() => parseBudgetBackup(text)).toThrow(/Only JSON v3.*previous app/)
+})
+
+test.each([
+  null, [], {},
+  { categories: [{ id: 'x', label: '' }], usedIds: ['x'] },
+  { categories: [{ id: 'x', label: 'Label' }], usedIds: [] },
+  { categories: [{ id: 'x', label: 'Label' }], usedIds: ['x', 'x'] },
+  { categories: [{ id: ' x', label: 'Label' }], usedIds: [' x'] },
+  { categories: [{ id: 'x', label: ' Label' }], usedIds: ['x'] },
+  { categories: [{ id: 'x', label: 'Label', extra: true }], usedIds: ['x'] },
+  { categories: [], usedIds: [null] },
+])('rejects malformed catalog %j without guessing its meaning', (catalog) => {
+  expect(() => parseBudgetBackup(JSON.stringify({ ...emptyDocument(), catalog }))).toThrow(
+    expect.objectContaining({ reason: 'INVALID_CATALOG', path: 'catalog' }),
   )
 })

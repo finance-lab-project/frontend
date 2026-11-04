@@ -17,7 +17,7 @@ intended for a repository subpath on `github.io`.
 belongs to one browser profile and origin, can be cleared or unavailable, and
 provides no automatic backups, synchronization, or authentication. Budgets on a
 previous domain or localhost do not appear on the new domain. The existing JSON
-v2 download/restore feature is a manual backup option; keep backups separately.
+v3 download/restore feature is a manual backup option; keep backups separately.
 Hosting requests reveal ordinary web request metadata to the host, but contain
 no budget fields. There are no backend services or paid infrastructure here.
 
@@ -62,6 +62,17 @@ issues, logs, screenshots, or artifacts.
    provisioning, then enable **Enforce HTTPS**. DNS/certificate provisioning may
    take up to 24 hours. Do not mark public verification complete until a browser
    successfully loads the custom domain with a valid certificate.
+
+## Category-model upgrade warning (issue #10)
+
+Before approving this breaking release, communicate **export every previous
+budget in the previous app before upgrading**. Obtain explicit human approval of
+the v3 break as well as ordinary code review. The new UI also displays this warning.
+Existing v2 storage is retained but is not read or migrated. Old JSON v1/v2 backups
+cannot be imported into v3; preserve the previous application and exports for
+recovery. Do not clear browser site data. See [the v3 storage and backup rules](budget-v3.md).
+A rollback to the previous app sees the retained v2 months, not new v3 amounts.
+Export v3 months before rolling back and retain a compatible v3 build to read them.
 
 ## Release and artifact approval
 
