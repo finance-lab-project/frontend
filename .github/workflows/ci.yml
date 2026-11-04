@@ -53,7 +53,7 @@ jobs:
     steps:
       - name: Deploy approved artifact
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
       - name: Record deployed source and URL
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
